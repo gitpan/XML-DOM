@@ -294,7 +294,7 @@ sub encodeText
 #
 sub encodeAttrValue
 {
-    encodeText (shift, '"&<');
+    encodeText (shift, '"&<>');
 }
 
 #
@@ -501,7 +501,7 @@ sub hasFeature
 {
     my ($self, $feature, $version) = @_;
  
-    $feature eq 'XML' and $version eq '1.0';
+    uc($feature) eq 'XML' and ($version eq '1.0' || $version eq '');
 }
 
 
@@ -3126,7 +3126,7 @@ sub splitText
     my $node = $self->[_Doc]->createTextNode ($rest);
 
     # insert new node after this node
-    $self->{Parent}->insertBefore ($node, $self->getNextSibling);
+    $self->[_Parent]->insertBefore ($node, $self->getNextSibling);
 
     $node;
 }
@@ -5059,6 +5059,10 @@ The DOM Level 1 specification at L<http://www.w3.org/TR/REC-DOM-Level-1>
 The XML spec (Extensible Markup Language 1.0) at L<http://www.w3.org/TR/REC-xml>
 
 The L<XML::Parser> and L<XML::Parser::Expat> manual pages.
+
+L<XML::LibXML> also provides a DOM Parser, and is significantly faster
+than XML::DOM, and is under active development.  It requires that you 
+download the Gnome libxml library.
 
 =head1 CAVEATS
 

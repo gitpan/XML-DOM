@@ -1,5 +1,12 @@
 Change History for XML-DOM:
 
+1.34 (tjmather) 10/07/2001
+- Fixed bug with XML::DOM::Text::splitText (Michael Guennewig)
+- The '>' character is now encoded in attribute values (Stephen Crowley)
+- hasFeature now is case-insensitve for name of feature and
+	the version defaults to 1.0, in accordance with the DOM 1.0
+	standard. (Wolfgang Mauerer)
+
 1.33 (tjmather) 8/29/2001
 - Added use bytes pragma to XML::DOM to fix unicode problems.
 
