@@ -1,4 +1,4 @@
-BEGIN {print "1..22\n";}
+BEGIN {print "1..23\n";}
 END {print "not ok 1\n" unless $loaded;}
 use XML::DOM;
 use CheckAncestors;
@@ -52,7 +52,11 @@ my $battr = $bart->getAttributes;
 assert_ok ($battr->getLength == 3);
 
 my $lattr = $lisa->getAttributes;
-assert_ok ($battr->getLength == 3);
+assert_ok ($lattr->getLength == 3);
+
+# Use getValues in list context
+my @attrList = $lattr->getValues;
+assert_ok (@attrList == 3);
 
 my $hair = $battr->getNamedItem ("hair");
 assert_ok ($hair->getValue eq "yellow");

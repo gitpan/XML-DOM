@@ -1,4 +1,4 @@
-BEGIN {print "1..4\n";}
+BEGIN {print "1..5\n";}
 END {print "not ok 1\n" unless $loaded;}
 use XML::DOM;
 $loaded = 1;
@@ -55,3 +55,7 @@ for my $ckl (@$ckls)
     $error++ if ($country ne "USA");
 }
 assert_ok ($error == 0);
+
+# Use getElementsByTagName in list context
+my @ckls = $doc->getElementsByTagName ("CKL");
+assert_ok (@ckls == 2);

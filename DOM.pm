@@ -54,7 +54,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.15';
+    $VERSION = '1.16';
 
     my $needVersion = '2.16';
     die "need at least XML::Parser version $needVersion"
@@ -611,7 +611,7 @@ sub getChildIndex
 
 sub getValues
 {
-    $_[0]->{$Special}->{Values};
+    wantarray ? @{ $_[0]->{$Special}->{Values} } : $_[0]->{$Special}->{Values};
 }
 
 # Remove circular dependencies. The NamedNodeMap and its values should
@@ -895,7 +895,10 @@ sub getChildNodes
 {
     # NOTE: if node can't have children, $self->{C} is undef.
     my $kids = $_[0]->{C};
-    defined ($kids) ? $kids : $XML::DOM::NodeList::EMPTY;
+
+    # Return a list if called in list context.
+    wantarray ? (defined ($kids) ? @{ $kids } : ()) :
+	        (defined ($kids) ? $kids : $XML::DOM::NodeList::EMPTY);
 }
 
 sub hasChildNodes
@@ -1110,24 +1113,23 @@ sub normalize
 sub getElementsByTagName
 {
     my ($self, $tagName, $list) = @_;
-    $list ||= new XML::DOM::NodeList;
+    $list = (wantarray ? [] : new XML::DOM::NodeList) unless defined $list;
 
     return unless defined $self->{C};
 
-    # preorder traversal: check children first
+    # preorder traversal: check parent node first
     for my $kid (@{$self->{C}})
     {
-	$kid->getElementsByTagName ($tagName, $list);
-    }
-
-    if ($self->isElementNode)
-    {
-	if ($tagName eq "*" || $tagName eq $self->getTagName)
+	if ($kid->isElementNode)
 	{
-	    push @{$list}, $self;
+	    if ($tagName eq "*" || $tagName eq $kid->getTagName)
+	    {
+		push @{$list}, $kid;
+	    }
+	    $kid->getElementsByTagName ($tagName, $list);
 	}
     }
-    $list;
+    wantarray ? @{ $list } : $list;
 }
 
 sub getNodeValue
@@ -2590,6 +2592,18 @@ sub getAttributes
 
 #------------------------------------------------------------
 # Extra method implementations
+
+# Added for convenience
+sub setTagName
+{
+    my ($self, $tagName) = @_;
+
+    croak new XML::DOM::DOMException (INVALID_CHARACTER_ERR, 
+				      "bad Element TagName [$tagName]")
+        unless XML::DOM::isValidName ($tagName);
+
+    $self->{TagName} = $tagName;
+}
 
 sub isReadOnly
 {
@@ -4300,9 +4314,15 @@ snapshot of the content of the node. This is true for every
 NodeList, including the ones returned by the
 getElementsByTagName method.
 
-
 NOTE: this implementation does not return a "live" NodeList for
 getElementsByTagName. See L<CAVEATS>.
+
+When this method is called in a list context, it returns a regular perl list
+containing the child nodes. Note that this list is not "live". E.g.
+
+ @list = $node->getChildNodes;	      # returns a perl list
+ $nodelist = $node->getChildNodes;    # returns a NodeList (object reference)
+ for my $kid ($node->getChildNodes)   # iterate over the children of $node
 
 =item getFirstChild
 
@@ -4517,6 +4537,13 @@ Return Value: A list of matching Element nodes.
 
 NOTE: this implementation does not return a "live" NodeList for
 getElementsByTagName. See L<CAVEATS>.
+
+When this method is called in a list context, it returns a regular perl list
+containing the result nodes. E.g.
+
+ @list = $node->getElementsByTagName;	    # returns a perl list
+ $nodelist = $node->getElementsByTagName;   # returns a NodeList (object ref.)
+ for my $elem ($node->getElementsByTagName) # iterate over the result nodes
 
 =head2 Additional methods not in the DOM Spec
 
@@ -4735,7 +4762,14 @@ indices is 0 to length-1 inclusive.
 =item getValues
 
 Returns a NodeList with the nodes contained in the NamedNodeMap.
-The NodeList is live, in that it reflects changes made to the NamedNodeMap.
+The NodeList is "live", in that it reflects changes made to the NamedNodeMap.
+
+When this method is called in a list context, it returns a regular perl list
+containing the values. Note that this list is not "live". E.g.
+
+ @list = $map->getValues;	 # returns a perl list
+ $nodelist = $map->getValues;    # returns a NodeList (object ref.)
+ for my $val ($map->getValues)   # iterate over the values
 
 =item getChildIndex (node)
 
@@ -5040,6 +5074,23 @@ Raised if this node is readonly.
 =item * NOT_FOUND_ERR
 
 Raised if oldAttr is not an attribute of the element.
+
+=back
+
+=head2 Additional methods not in the DOM Spec
+
+=item setTagName (newTagName)
+
+Sets the tag name of the Element. Note that this method is not portable
+between DOM implementations.
+
+DOMExceptions:
+
+=over 4
+
+=item * INVALID_CHARACTER_ERR
+
+Raised if the specified name contains an invalid character.
 
 =back
 

@@ -1,5 +1,18 @@
 Change History:
 
+1.16 (enno) 2/23/1999
+- Added XML::DOM::Element::setTagName
+- Methods returning NodeList objects will now return regular perl lists when
+  called in list context, e.g:
+    @list = $elem->getChildNodes;	# returns a list
+    $nodelist = $elem->getChildNodes;	# return a NodeList (object reference)
+  Note that a NodeList is 'live' (except the one returned by 
+  getElementsByTagName) and that a list is not 'live'.
+- Fixed getElementsByTagName.
+  - It would return the node that it was called on (if the tagName matched)
+  - It would return the nodes in the wrong order (they should be in
+    document order)
+
 1.15 (enno) 2/12/1999
 - 28% Performance improvements. Benchmark was the following program:
 
