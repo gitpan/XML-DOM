@@ -12,8 +12,7 @@ WriteMakefile(
               dist      => {COMPRESS => 'gzip', SUFFIX => '.gz'},
               VERSION_FROM => 'DOM.pm',
               PREREQ_PM => { XML::Parser => '2.23' },
-	      PM => { 'DOM.pm' => '$(INST_LIBDIR)/DOM.pm',
-		      'DOM/UTF8.pm' => '$(INST_LIBDIR)/DOM/UTF8.pm'},
+	      PM => { 'DOM.pm' => '$(INST_LIBDIR)/DOM.pm'},
 	      @extras
              );
 

@@ -1,5 +1,23 @@
 Change History:
 
+1.24 (enno) 8/2/1999
+- Processing Instructions inside an Element node were accidentally added to
+  the Document node.
+- Added DOM.gif to the distribution and to the XML::DOM home page 
+  (http://www.erols.com/enno/dom) which shows a logical view of the DOM 
+  interfaces. (Thanks to Vance Christiaanse <vance@textwise.com>)
+- Added recurse option (2nd parameter) to getElementsByTagName. When set to 0,
+  it only returns direct child nodes. When not specified, it defaults to 1,
+  so it should not break existing code. Note that using 0 is not portable to
+  other DOM implementations.
+- Fixed the regular expressions for XML tokens to include Unicode values > 127
+- Removed XML::DOM::UTF8 (it is no longer needed due to previous fix)
+- Fixed encodeText(). In certain cases special characters (like ", < and &)
+  would not be converted to &quot; etc. when writing attribute values.
+  (Thanks to Alon Salant <alon@martnet.com>)
+- When writing XML, single quotes were converted to &apos instead of &apos;
+  (Thanks to Galactic Taco <thomas@mostertruck.gsfc.nasa.gov>)
+
 1.23 (enno) 6/4/1999
 - Added XML::DOM::setTagCompression to give you control over how empty
   element tags are printed. See XML::DOM documentation for details.

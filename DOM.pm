@@ -50,17 +50,19 @@ use vars qw( $VERSION @ISA @EXPORT
 	     $IgnoreReadOnly $SafeMode $TagStyle
 	     %DefaultEntities %DecodeDefaultEntity
 	     $ChBaseChar $ChIdeographic
-	     $ChLetter $ChDigit $ChExtender $ChCombiningChar $ChNameChar $ReName
+	     $ChLetter $ChDigit $ChExtender $ChCombiningChar $ChNameChar 
+	     $ReName $ReNmToken $ReEntityRef $ReCharRef $ReReference $ReAttValue
 	   );
 use Carp;
 
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.23';
+    $VERSION = '1.24';
 
     my $needVersion = '2.23';
-    die "need at least XML::Parser version $needVersion"
+    die "need at least XML::Parser version $needVersion (current=" .
+		$XML::Parser::VERSION . ")"
 	unless $XML::Parser::VERSION >= $needVersion;
 
     @ISA = qw( Exporter );
@@ -114,21 +116,30 @@ sub ATTLIST_DECL_NODE		() {16;}	# not in the DOM Spec
 # XML Spec.
 # 
 # NOTE: ChLetter maps to the 'Letter' definition in the XML Spec.
-# I just took all the character codes < 128.
-#
-# The XML::DOM::UTF8 module predefines these first five variables
-# to also include Unicodes > 127
 #
 
-$ChBaseChar		||= "a-zA-Z";
-$ChIdeographic		||= "";
-$ChDigit		||= "0-9";
-$ChExtender		||= "";
-$ChCombiningChar	||= "";
+$ChBaseChar = '(?:[a-zA-Z]|\xC3[\x80-\x96\x98-\xB6\xB8-\xBF]|\xC4[\x80-\xB1\xB4-\xBE]|\xC5[\x81-\x88\x8A-\xBE]|\xC6[\x80-\xBF]|\xC7[\x80-\x83\x8D-\xB0\xB4\xB5\xBA-\xBF]|\xC8[\x80-\x97]|\xC9[\x90-\xBF]|\xCA[\x80-\xA8\xBB-\xBF]|\xCB[\x80\x81]|\xCE[\x86\x88-\x8A\x8C\x8E-\xA1\xA3-\xBF]|\xCF[\x80-\x8E\x90-\x96\x9A\x9C\x9E\xA0\xA2-\xB3]|\xD0[\x81-\x8C\x8E-\xBF]|\xD1[\x80-\x8F\x91-\x9C\x9E-\xBF]|\xD2[\x80\x81\x90-\xBF]|\xD3[\x80-\x84\x87\x88\x8B\x8C\x90-\xAB\xAE-\xB5\xB8\xB9]|\xD4[\xB1-\xBF]|\xD5[\x80-\x96\x99\xA1-\xBF]|\xD6[\x80-\x86]|\xD7[\x90-\xAA\xB0-\xB2]|\xD8[\xA1-\xBA]|\xD9[\x81-\x8A\xB1-\xBF]|\xDA[\x80-\xB7\xBA-\xBE]|\xDB[\x80-\x8E\x90-\x93\x95\xA5\xA6]|\xE0(?:\xA4[\x85-\xB9\xBD]|\xA5[\x98-\xA1]|\xA6[\x85-\x8C\x8F\x90\x93-\xA8\xAA-\xB0\xB2\xB6-\xB9]|\xA7[\x9C\x9D\x9F-\xA1\xB0\xB1]|\xA8[\x85-\x8A\x8F\x90\x93-\xA8\xAA-\xB0\xB2\xB3\xB5\xB6\xB8\xB9]|\xA9[\x99-\x9C\x9E\xB2-\xB4]|\xAA[\x85-\x8B\x8D\x8F-\x91\x93-\xA8\xAA-\xB0\xB2\xB3\xB5-\xB9\xBD]|\xAB\xA0|\xAC[\x85-\x8C\x8F\x90\x93-\xA8\xAA-\xB0\xB2\xB3\xB6-\xB9\xBD]|\xAD[\x9C\x9D\x9F-\xA1]|\xAE[\x85-\x8A\x8E-\x90\x92-\x95\x99\x9A\x9C\x9E\x9F\xA3\xA4\xA8-\xAA\xAE-\xB5\xB7-\xB9]|\xB0[\x85-\x8C\x8E-\x90\x92-\xA8\xAA-\xB3\xB5-\xB9]|\xB1[\xA0\xA1]|\xB2[\x85-\x8C\x8E-\x90\x92-\xA8\xAA-\xB3\xB5-\xB9]|\xB3[\x9E\xA0\xA1]|\xB4[\x85-\x8C\x8E-\x90\x92-\xA8\xAA-\xB9]|\xB5[\xA0\xA1]|\xB8[\x81-\xAE\xB0\xB2\xB3]|\xB9[\x80-\x85]|\xBA[\x81\x82\x84\x87\x88\x8A\x8D\x94-\x97\x99-\x9F\xA1-\xA3\xA5\xA7\xAA\xAB\xAD\xAE\xB0\xB2\xB3\xBD]|\xBB[\x80-\x84]|\xBD[\x80-\x87\x89-\xA9])|\xE1(?:\x82[\xA0-\xBF]|\x83[\x80-\x85\x90-\xB6]|\x84[\x80\x82\x83\x85-\x87\x89\x8B\x8C\x8E-\x92\xBC\xBE]|\x85[\x80\x8C\x8E\x90\x94\x95\x99\x9F-\xA1\xA3\xA5\xA7\xA9\xAD\xAE\xB2\xB3\xB5]|\x86[\x9E\xA8\xAB\xAE\xAF\xB7\xB8\xBA\xBC-\xBF]|\x87[\x80-\x82\xAB\xB0\xB9]|[\xB8\xB9][\x80-\xBF]|\xBA[\x80-\x9B\xA0-\xBF]|\xBB[\x80-\xB9]|\xBC[\x80-\x95\x98-\x9D\xA0-\xBF]|\xBD[\x80-\x85\x88-\x8D\x90-\x97\x99\x9B\x9D\x9F-\xBD]|\xBE[\x80-\xB4\xB6-\xBC\xBE]|\xBF[\x82-\x84\x86-\x8C\x90-\x93\x96-\x9B\xA0-\xAC\xB2-\xB4\xB6-\xBC])|\xE2(?:\x84[\xA6\xAA\xAB\xAE]|\x86[\x80-\x82])|\xE3(?:\x81[\x81-\xBF]|\x82[\x80-\x94\xA1-\xBF]|\x83[\x80-\xBA]|\x84[\x85-\xAC])|\xEA(?:[\xB0-\xBF][\x80-\xBF])|\xEB(?:[\x80-\xBF][\x80-\xBF])|\xEC(?:[\x80-\xBF][\x80-\xBF])|\xED(?:[\x80-\x9D][\x80-\xBF]|\x9E[\x80-\xA3]))';
 
-$ChLetter		= "$ChBaseChar$ChIdeographic";
-$ChNameChar		= "-._:$ChLetter$ChDigit$ChCombiningChar$ChExtender";
-$ReName			= "[$ChLetter:_][$ChNameChar]*";
+$ChIdeographic = '(?:\xE3\x80[\x87\xA1-\xA9]|\xE4(?:[\xB8-\xBF][\x80-\xBF])|\xE5(?:[\x80-\xBF][\x80-\xBF])|\xE6(?:[\x80-\xBF][\x80-\xBF])|\xE7(?:[\x80-\xBF][\x80-\xBF])|\xE8(?:[\x80-\xBF][\x80-\xBF])|\xE9(?:[\x80-\xBD][\x80-\xBF]|\xBE[\x80-\xA5]))';
+
+$ChDigit = '(?:[0-9]|\xD9[\xA0-\xA9]|\xDB[\xB0-\xB9]|\xE0(?:\xA5[\xA6-\xAF]|\xA7[\xA6-\xAF]|\xA9[\xA6-\xAF]|\xAB[\xA6-\xAF]|\xAD[\xA6-\xAF]|\xAF[\xA7-\xAF]|\xB1[\xA6-\xAF]|\xB3[\xA6-\xAF]|\xB5[\xA6-\xAF]|\xB9[\x90-\x99]|\xBB[\x90-\x99]|\xBC[\xA0-\xA9]))';
+
+$ChExtender = '(?:\xC2\xB7|\xCB[\x90\x91]|\xCE\x87|\xD9\x80|\xE0(?:\xB9\x86|\xBB\x86)|\xE3(?:\x80[\x85\xB1-\xB5]|\x82[\x9D\x9E]|\x83[\xBC-\xBE]))';
+
+$ChCombiningChar = '(?:\xCC[\x80-\xBF]|\xCD[\x80-\x85\xA0\xA1]|\xD2[\x83-\x86]|\xD6[\x91-\xA1\xA3-\xB9\xBB-\xBD\xBF]|\xD7[\x81\x82\x84]|\xD9[\x8B-\x92\xB0]|\xDB[\x96-\xA4\xA7\xA8\xAA-\xAD]|\xE0(?:\xA4[\x81-\x83\xBC\xBE\xBF]|\xA5[\x80-\x8D\x91-\x94\xA2\xA3]|\xA6[\x81-\x83\xBC\xBE\xBF]|\xA7[\x80-\x84\x87\x88\x8B-\x8D\x97\xA2\xA3]|\xA8[\x82\xBC\xBE\xBF]|\xA9[\x80-\x82\x87\x88\x8B-\x8D\xB0\xB1]|\xAA[\x81-\x83\xBC\xBE\xBF]|\xAB[\x80-\x85\x87-\x89\x8B-\x8D]|\xAC[\x81-\x83\xBC\xBE\xBF]|\xAD[\x80-\x83\x87\x88\x8B-\x8D\x96\x97]|\xAE[\x82\x83\xBE\xBF]|\xAF[\x80-\x82\x86-\x88\x8A-\x8D\x97]|\xB0[\x81-\x83\xBE\xBF]|\xB1[\x80-\x84\x86-\x88\x8A-\x8D\x95\x96]|\xB2[\x82\x83\xBE\xBF]|\xB3[\x80-\x84\x86-\x88\x8A-\x8D\x95\x96]|\xB4[\x82\x83\xBE\xBF]|\xB5[\x80-\x83\x86-\x88\x8A-\x8D\x97]|\xB8[\xB1\xB4-\xBA]|\xB9[\x87-\x8E]|\xBA[\xB1\xB4-\xB9\xBB\xBC]|\xBB[\x88-\x8D]|\xBC[\x98\x99\xB5\xB7\xB9\xBE\xBF]|\xBD[\xB1-\xBF]|\xBE[\x80-\x84\x86-\x8B\x90-\x95\x97\x99-\xAD\xB1-\xB7\xB9])|\xE2\x83[\x90-\x9C\xA1]|\xE3(?:\x80[\xAA-\xAF]|\x82[\x99\x9A]))';
+
+$ChLetter	= "(?:$ChBaseChar|$ChIdeographic)";
+$ChNameChar	= "(?:[-._:]|$ChLetter|$ChDigit|$ChCombiningChar|$ChExtender)";
+
+$ReName		= "(?:(?:[:_]|$ChLetter)$ChNameChar*)";
+$ReNmToken	= "(?:$ChNameChar)+";
+$ReEntityRef	= "(?:\&$ReName;)";
+$ReCharRef	= "(?:\&#(?:\d+|x[0-9a-fA-F]+);)";
+$ReReference	= "(?:$ReEntityRef|$ReCharRef)";
+
+#?? what if it contains entity references?
+$ReAttValue     = "(?:\"(?:[^\"&<]*|$ReReference)\"|'(?:[^\'&<]|$ReReference)*')";
+
 
 %DefaultEntities = 
 (
@@ -144,7 +155,7 @@ $ReName			= "[$ChLetter:_][$ChNameChar]*";
  '"' => "&quot;",
  ">" => "&gt;",
  "<" => "&lt;",
- "'" => "&apos",
+ "'" => "&apos;",
  "&" => "&amp;"
 );
 
@@ -196,25 +207,20 @@ sub toHex
 # converted (e.g. "&<" for conversion to "&amp;" and "&lt;" resp.)
 #
 
-unless (defined \&encodeText)
+sub encodeText
 {
-    sub encodeText
-    {
-	# This method is overriden in XML::DOM::UTF8
-	
-	my ($str, $default) = @_;
-	return undef unless defined $str;
-	
-	$str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
-		defined($1) ? XmlUtf8Decode ($1) : 
-			defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egos;
+    my ($str, $default) = @_;
+    return undef unless defined $str;
+    
+    $str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
+	defined($1) ? XmlUtf8Decode ($1) : 
+	defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egs;
 
 #?? could there be references that should not be expanded?
 # e.g. should not replace &#nn; &#xAF; and &abc;
 #    $str =~ s/&(?!($ReName|#[0-9]+|#x[0-9a-fA-F]+);)/&amp;/go;
 
-	$str;
-    }
+    $str;
 }
 
 # Used by AttDef - default value
@@ -233,33 +239,28 @@ sub encodeAttrValue
 #
 # not checking for bad characters: < 0, x00-x08, x0B-x0C, x0E-x1F, xFFFE-xFFFF
 
-unless (defined \&XmlUtf8Encode)
+sub XmlUtf8Encode
 {
-    # This method is overriden in XML::DOM::UTF8
-	
-    sub XmlUtf8Encode
+    my $n = shift;
+    if ($n < 0x80)
     {
-	my $n = shift;
-	if ($n < 0x80)
-	{
-	    return chr ($n);
-	}
-	elsif ($n < 0x800)
-	{
-	    return pack ("CC", (($n >> 6) | 0xc0), (($n & 0x3f) | 0x80));
-	}
-	elsif ($n < 0x10000)
-	{
-	    return pack ("CCC", (($n >> 12) | 0xe0), ((($n >> 6) & 0x3f) | 0x80),
-			 (($n & 0x3f) | 0x80));
-	}
-	elsif ($n < 0x110000)
-	{
-	    return pack ("CCCC", (($n >> 18) | 0xf0), ((($n >> 12) & 0x3f) | 0x80),
-			 ((($n >> 6) & 0x3f) | 0x80), (($n & 0x3f) | 0x80));
-	}
-	croak "number is too large for Unicode [$n] in &XmlUtf8Encode";
+	return chr ($n);
     }
+    elsif ($n < 0x800)
+    {
+	return pack ("CC", (($n >> 6) | 0xc0), (($n & 0x3f) | 0x80));
+    }
+    elsif ($n < 0x10000)
+    {
+	return pack ("CCC", (($n >> 12) | 0xe0), ((($n >> 6) & 0x3f) | 0x80),
+		     (($n & 0x3f) | 0x80));
+    }
+    elsif ($n < 0x110000)
+    {
+	return pack ("CCCC", (($n >> 18) | 0xf0), ((($n >> 12) & 0x3f) | 0x80),
+		     ((($n >> 6) & 0x3f) | 0x80), (($n & 0x3f) | 0x80));
+    }
+    croak "number is too large for Unicode [$n] in &XmlUtf8Encode";
 }
 
 #
@@ -1200,10 +1201,11 @@ sub normalize
 
 # Return all Element nodes in the subtree that have the specified tagName.
 # If tagName is "*", all Element nodes are returned.
-# NOTE: the DOM Spec does not specify a 3rd parameter ($list)
+# NOTE: the DOM Spec does not specify a 3rd or 4th parameter
 sub getElementsByTagName
 {
-    my ($self, $tagName, $list) = @_;
+    my ($self, $tagName, $recurse, $list) = @_;
+    $recurse = 1 unless defined $recurse;
     $list = (wantarray ? [] : new XML::DOM::NodeList) unless defined $list;
 
     return unless defined $self->{C};
@@ -1217,7 +1219,7 @@ sub getElementsByTagName
 	    {
 		push @{$list}, $kid;
 	    }
-	    $kid->getElementsByTagName ($tagName, $list);
+	    $kid->getElementsByTagName ($tagName, $recurse, $list);
 	}
     }
     wantarray ? @{ $list } : $list;
@@ -4184,7 +4186,7 @@ sub Proc
 #    deb ("Proc", @_);
 
     undef $_DP_last_text;
-    $_DP_doc->appendChild (new XML::DOM::ProcessingInstruction ($_DP_doc, @_));
+    $_DP_elem->appendChild (new XML::DOM::ProcessingInstruction ($_DP_doc, @_));
 }
 
 # ExternEnt is called when an external entity, such as:
@@ -4346,10 +4348,7 @@ previous value. The getIgnoreReadOnly method simply returns its current value.
 =item isValidName (name)
 
 Whether the specified name is a valid "Name" as specified in the XML spec.
-The default implementation currently only accepts names consisting of ASCII 
-characters (i.e. Unicode character codes < 127.)
-Use XML::DOM::UTF8 with Perl 5.005_5x to allow characters > 127.
-See XML::DOM::UTF8 manpage for details.
+Characters with Unicode values > 127 are now also supported.
 
 =item getAllowReservedNames and allowReservedNames (boolean)
 
@@ -4686,7 +4685,7 @@ structure are to be used.
 B<Not In DOM Spec>: In the DOM Spec this method is defined in the Element and 
 Document class interfaces only, but it doesn't hurt to have it here...
 
-=item getElementsByTagName
+=item getElementsByTagName (name [, recurse])
 
 Returns a NodeList of all descendant elements with a given
 tag name, in the order in which they would be encountered in
@@ -4694,6 +4693,7 @@ a preorder traversal of the Element tree.
 
 Parameters:
  I<name>  The name of the tag to match on. The special value "*" matches all tags.
+ I<recurse>  Whether it should return only direct child nodes (0) or any descendant that matches the tag name (1). This argument is optional and defaults to 1. It is not part of the DOM spec.
 
 Return Value: A list of matching Element nodes.
 
@@ -4703,9 +4703,9 @@ getElementsByTagName. See L<CAVEATS>.
 When this method is called in a list context, it returns a regular perl list
 containing the result nodes. E.g.
 
- @list = $node->getElementsByTagName;	    # returns a perl list
- $nodelist = $node->getElementsByTagName;   # returns a NodeList (object ref.)
- for my $elem ($node->getElementsByTagName) # iterate over the result nodes
+ @list = $node->getElementsByTagName("tag");       # returns a perl list
+ $nodelist = $node->getElementsByTagName("tag");   # returns a NodeList (object ref.)
+ for my $elem ($node->getElementsByTagName("tag")) # iterate over the result nodes
 
 =head2 Additional methods not in the DOM Spec
 
@@ -6018,12 +6018,6 @@ substrings are allowed except for "]]>". In regular text, certain characters are
 not allowed, e.g. ">" has to be converted to "&gt;". 
 These routines should be verified by someone who knows the details.
 
-=item * UTF-8
-
-When Perl supports UTF-8 in regular expressions, we should update the
-XML::DOM::isValidName method to allow non-ASCII characters.
-See the XML::DOM::UTF8 module when using perl 5.005_55 and over.
-
 =item * Quotes
 
 Certain sections in XML are quoted, like attribute values in an Element.
@@ -6048,8 +6042,6 @@ child nodes of the Document.
 
 The Japanese version of this document by Takanori Kawai (Hippo2000)
 at http://member.nifty.ne.jp/hippo2000/perltips/xml/dom.htm 
-
-The XML::DOM::UTF8 manual page.
 
 The DOM Level 1 specification at http://www.w3.org/TR/REC-DOM-Level-1
 
