@@ -54,12 +54,11 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.10';
+    $VERSION = '1.11';
 
     my $needVersion = '2.16';
-    die "need XML::Parser version $needVersion"
-	unless $needVersion eq $XML::Parser::VERSION;
-#?? eq or >= ?
+    die "need at least XML::Parser version $needVersion"
+	unless $XML::Parser::VERSION >= $needVersion;
 }
 
 #
@@ -4027,7 +4026,7 @@ XML::DOM - A perl module for building DOM Level 1 compliant document structures
  {
      my $node = $nodes->item ($i);
      my $href = $node->getAttribute ("HREF");
-     print $node->getValue . "\n";
+     print $href->getValue . "\n";
  }
 
  $doc->printToFile ("out.xml");
@@ -4533,7 +4532,7 @@ for details.
 
 =over 4
 
-=item getItem (index)
+=item item (index)
 
 Returns the indexth item in the collection. If index is
 greater than or equal to the number of nodes in the list,
@@ -4635,7 +4634,7 @@ Raised if there is no node named name in the map.
 
 =back
 
-=item getItem (index)
+=item item (index)
 
 Returns the indexth item in the map. If index is greater than
 or equal to the number of nodes in the map, this returns undef.

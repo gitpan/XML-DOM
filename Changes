@@ -1,5 +1,14 @@
 Change History:
 
+1.11 (enno) 12/16/1998
+- Fixed checking of XML::Parser version number. Newer versions should be 
+  allowed as well. Current version works with XML::Parser 2.17.
+  (Thanks to Martin Kolbuszewski at MKolbuszewski@mail.cebra.com)
+- Fixed typo in SYNOPSIS: "print $node->getValue ..." should have been 
+  "print $href->getValue ..." (Thanks again Martin)
+- Fixed typo in documentation: 'getItem' method should have been 'item'
+  (in 2 places.) (Thanks again Martin)
+
 1.10 (enno) 12/8/1998
 - Attributes with non-alphanumeric characters in the attribute name (like "-") 
   were mistaken for default attribute values. (Bug in checkUnspecAttr regexp.)
