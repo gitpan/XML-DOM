@@ -28,6 +28,9 @@ package XML::DOM;
 ######################################################################
 
 use strict;
+
+use bytes; # REMOVE ME if Perl < 5.6.0
+
 use vars qw( $VERSION @ISA @EXPORT
 	     $IgnoreReadOnly $SafeMode $TagStyle
 	     %DefaultEntities %DecodeDefaultEntity

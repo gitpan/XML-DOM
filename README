@@ -7,12 +7,19 @@ under the same terms as Perl itself.
 
 The XML::DOM code is fairly stable and has been used quite a bit.
 
+However, there is a new DOM module, XML::LibXML which is under active
+development and signicantly faster than XML::DOM, since it is based on
+the libxml2 C library.
+
 For bug reports or suggestions send email to tjmather@tjmather.com
 
 ========= DEPENDENCIES =========================================================
 
 You need the following modules (all available at CPAN):
 
+- Perl 5.6.0 or higher (can run under earlier versions, simply remove
+	use bytes;
+	from lib/XML/DOM.pm)
 - XML::RegExp
 - XML::Parser (At least version 2.28, 2.30 recommended)
 	 If you are using XML::Parser 2.27, then you should download
@@ -21,9 +28,6 @@ You need the following modules (all available at CPAN):
 		  cases may fail and you can't read files from URLs.)
 - XML::Parser::PerlSAX (It's part of libxml-perl. You need at least version 0.06.
 			If you don't have it some test cases may fail.)
-
-I used PodToHTML-0.04 to generate the html documentation. You only need this
-if you want to re-generate it.
 
 ========= INSTALLATION =========================================================
 
@@ -66,9 +70,4 @@ It requires at least version 5.004 of perl and can be found on CPAN.
 This is a beta version and although there will not be any major API changes,
 minor changes may occur as we get feedback
 from the people on the perl-xml mailing list. [You can subscribe to
-this list by sending a message to subscribe-perl-xml@lyris.activestate.com.]
-
-============= Other package ===================================================
-XML::Handler::BuildDOM - Previously called XML::DOM::PerlSAX. Builds a DOM
-			document from PerlSAX events.
---------------------------------------------------------------------------------
+this list by sending a message to subscribe-perl-xml@listserv.activestate.com.]

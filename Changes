@@ -1,5 +1,8 @@
 Change History for XML-DOM:
 
+1.33 (tjmather) 8/29/2001
+- Added use bytes pragma to XML::DOM to fix unicode problems.
+
 1.32 (tjmather) 8/25/2001
 - Separated out XML::UM, XML::Filter::* and XML::Builder::* modules
 	into separate distributions (Idea of Matt Sergeant, as discussed

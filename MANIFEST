@@ -34,13 +34,7 @@ lib/XML/DOM/PerlSAX.pm
 lib/XML/DOM/ProcessingInstruction.pod
 lib/XML/DOM/Text.pod
 lib/XML/DOM/XMLDecl.pod
-lib/XML/Filter/DetectWS.pm
-lib/XML/Filter/Reindent.pm
-lib/XML/Filter/SAXT.pm
 lib/XML/Handler/BuildDOM.pm
-lib/XML/Handler/Composer.pm
-lib/XML/Handler/PrintEvents.pm
-lib/XML/UM.pm
 samples/REC-xml-19980210.xml	Sample XML files
 t/build_dom.t
 t/dom_astress.t			dom_*.t are test cases for XML::DOM
