@@ -1,7 +1,5 @@
 use ExtUtils::MakeMaker;
 
-$VERSION = '1.42';
-
 sub MY::libscan
 {
     package MY;
@@ -20,7 +18,7 @@ sub MY::libscan
 # the contents of the Makefile that is written.
 WriteMakefile(
     NAME	=> 'XML-DOM',
-    VERSION_FROM => 'Makefile.PL',
+    VERSION_FROM => 'lib/XML/DOM.pm',
                    # XML::Parser 2.28 and above work, but make test
                    # doesn't pass because of different ways
                    # errors are reported

@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.42';
+    $VERSION = '1.43';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -4198,7 +4198,7 @@ sub new
 {
     my ($class, %args) = @_;
 
-    $args{Style} = 'Dom';
+    $args{Style} = 'XML::Parser::Dom';
     $class->SUPER::new (%args);
 }
 
@@ -4900,7 +4900,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.42".
+implementation, e.g. "1.43".
 
 =back
 

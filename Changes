@@ -1,5 +1,10 @@
 Change History for XML-DOM:
 
+1.43 (tjmather) 07/28/2003
+- Fixed bug that manifests itself with XML::Parser 2.32 and greater,
+specify external style as 'XML::Parser::Dom' rather than just 'Dom'.
+(Matt Sergeant)
+
 1.42 (tjmather) 12/05/2002
 - Fixed bug where XML::DOM doesn't encode some characters in
 attribute values under Perl 5.8.0 (Steve Hay)
