@@ -1,5 +1,22 @@
 Change History:
 
+1.22 (enno) 5/28/1999
+- The XML::DOM documentation was translated into Japanese by Takanori Kawai 
+  (aka Hippo2000) at http://member.nifty.ne.jp/hippo2000/perltips/xml/dom.htm
+- Fixed documentation of XML::DOM::Node::removeChild()
+  It used to list the exceptions HIERARCHY_REQUEST_ERR, WRONG_DOCUMENT_ERR.
+  (Thanks again, Takanori)
+- XML::DOM::Entity::print was putting double quotes around the notation name 
+  after the NDATA keyword.
+- Added Unparsed handler that calls the Entity handler.
+- Changed implementation of XML::Parser::Dom to use local variables for slight
+  performance improvement and easier exception handling.
+- Removed support for old XML::Parser versions (for detecting whether attributes
+  were specified or defaulted.) 
+  People should move to latest XML::Parser (currently version 2.23)
+- If an ENTITY value was e.g. '"', it would be printed as """
+  (Thanks to Raimund Jacob <raimi@pinuts.de>)
+
 1.21 (enno) 4/27/1999
 - Fixed Start handler to work with new method specified_attr() in 
   XML::Parser 2.23

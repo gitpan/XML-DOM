@@ -11,9 +11,9 @@ WriteMakefile(
               NAME	=> 'XML::DOM',
               dist      => {COMPRESS => 'gzip', SUFFIX => '.gz'},
               VERSION_FROM => 'DOM.pm',
-              PREREQ_PM => { XML::Parser => '2.16' },
+              PREREQ_PM => { XML::Parser => '2.23' },
 	      PM => { 'DOM.pm' => '$(INST_LIBDIR)/DOM.pm',
-		      'DOM/UTF8.pm' => '$(INST_LIBDIR)/XML/UTF8.pm'},
+		      'DOM/UTF8.pm' => '$(INST_LIBDIR)/DOM/UTF8.pm'},
 	      @extras
              );
 

@@ -15,6 +15,13 @@
 # * NoExpand mode (don't know what else is useful)
 # * various odds and ends: see comments starting with "??"
 # * normalize(1) should also expand CDataSections and EntityReferences
+# * parse a DocumentFragment?
+# * encoding support
+# * broken link in web page to UTF8.html
+# * support printing empty tag as <br /> (note the space!)
+# * print empty Doctype without '[' and ']'
+# * someone reported an error that an Entity or something contained a single
+#   quote and it printed ''' or something...
 #
 ######################################################################
 
@@ -50,9 +57,9 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.21';
+    $VERSION = '1.22';
 
-    my $needVersion = '2.16';
+    my $needVersion = '2.23';
     die "need at least XML::Parser version $needVersion"
 	unless $XML::Parser::VERSION >= $needVersion;
 
@@ -1962,8 +1969,12 @@ sub print
     my $pubId = $self->{PubId};
     my $ndata = $self->{Ndata};
 
-    $FILE->print (" \"$value\"") if defined $value;
-
+    if (defined $value)
+    {
+#?? Not sure what to do if it contains both single and double quote
+	$value = ($value =~ /\"/) ? "'$value'" : "\"$value\"";
+	$FILE->print (" $value");
+    }
     if (defined $pubId)
     {
 	$FILE->print (" PUBLIC \"$pubId\"");	
@@ -1977,7 +1988,7 @@ sub print
     {
 	$FILE->print (" \"$sysId\"");
     }
-    $FILE->print (" NDATA \"$ndata\"") if defined $ndata;
+    $FILE->print (" NDATA $ndata") if defined $ndata;
     $FILE->print (">");
 }
 
@@ -3866,6 +3877,23 @@ sub new
 sub parse
 {
     my $self = shift;
+
+    local $XML::Parser::Dom::_DP_doc;
+    local $XML::Parser::Dom::_DP_elem;
+    local $XML::Parser::Dom::_DP_doctype;
+    local $XML::Parser::Dom::_DP_in_prolog;
+    local $XML::Parser::Dom::_DP_end_doc;
+    local $XML::Parser::Dom::_DP_saw_doctype;
+    local $XML::Parser::Dom::_DP_in_CDATA;
+    local $XML::Parser::Dom::_DP_keep_CDATA;
+    local $XML::Parser::Dom::_DP_last_text;
+
+
+    # Temporarily disable checks that Expat already does (for performance)
+    local $XML::DOM::SafeMode = 0;
+    # Temporarily disable ReadOnly checks
+    local $XML::DOM::IgnoreReadOnly = 1;
+
     my $ret;
     eval {
 	$ret = $self->SUPER::parse (@_);
@@ -3874,12 +3902,9 @@ sub parse
 
     if ($err)
     {
-	my $doc = $self->{DOM_Document};
+	my $doc = $XML::Parser::Dom::_DP_doc;
 	if ($doc)
 	{
-	    # Restore ignoreReadOnly and SafeMode flags to previous values
-	    # and remove circular references etc. for garbage collection
-	    XML::Parser::Dom::Final ($self);
 	    $doc->dispose;
 	}
 	die $err;
@@ -3892,231 +3917,117 @@ sub parse
 package XML::Parser::Dom;
 ######################################################################
 
+use vars qw( $_DP_doc
+	     $_DP_elem
+	     $_DP_doctype
+	     $_DP_in_prolog
+	     $_DP_end_doc
+	     $_DP_saw_doctype
+	     $_DP_in_CDATA
+	     $_DP_keep_CDATA
+	     $_DP_last_text
+	   );
+
 # This adds a new Style to the XML::Parser class.
 # From now on you can say: $parser = new XML::Parser ('Style' => 'Dom' );
 # but that is *NOT* how a regular user should use it!
 $XML::Parser::Built_In_Styles{Dom} = 1;
 
-my $lastWasText = 0;
-my $lastText;
-
 sub Init
 {
-    my $expat = shift;
-
-    # Temporarily disable ReadOnly checks
-    $expat->{DOM_ignoreReadOnly} = XML::DOM::ignoreReadOnly (1);
-
-    # Temporarily disable checks that Expat already does (for performance)
-    $expat->{DOM_SafeMode} = $XML::DOM::SafeMode;
-    $XML::DOM::SafeMode = 0;
-
-    my $doc = new XML::DOM::Document();
-    $expat->{DOM_Element} = $expat->{DOM_Document} = $doc;
-    
-    $expat->{DOM_Doctype} = new XML::DOM::DocumentType ($doc);
-    $doc->setDoctype ($expat->{DOM_Doctype});
-    
+    $_DP_elem = $_DP_doc = new XML::DOM::Document();
+    $_DP_doctype = new XML::DOM::DocumentType ($_DP_doc);
+    $_DP_doc->setDoctype ($_DP_doctype);
+    $_DP_keep_CDATA = $_[0]->{KeepCDATA};
+  
     # Prepare for document prolog
-    $expat->{DOM_inProlog} = 1;
+    $_DP_in_prolog = 1;
+#    $expat->{DOM_inProlog} = 1;
 
     # We haven't passed the root element yet
-    $expat->{DOM_endDoc} = 0;
+    $_DP_end_doc = 0;
 
-    $lastWasText = 0;
+    undef $_DP_last_text;
 }
 
 sub Final
 {
-    my $expat = shift;
-
-    my $doc = $expat->{DOM_Document};
-    unless ($expat->{DOM_sawDoctype})
+    unless ($_DP_saw_doctype)
     {
-	my $doctype = $doc->removeDoctype;
+	my $doctype = $_DP_doc->removeDoctype;
 	$doctype->dispose;
     }
-
-    # Restore flags to previous values
-    XML::DOM::ignoreReadOnly ($expat->{DOM_ignoreReadOnly});
-    $XML::DOM::SafeMode = $expat->{DOM_SafeMode};
-
-    # Remove no longer needed references for garbage collection
-    delete $expat->{DOM_Document};
-    delete $expat->{DOM_Element};
-    delete $expat->{DOM_Doctype};
-
-    $doc;
+    $_DP_doc;
 }
 
 sub Char
 {
-    my ($expat, $str) = @_;
+    my $str = $_[1];
 
-    if ($expat->{KeepCDATA} && $expat->{DOM_inCDATA})
+    if ($_DP_in_CDATA && $_DP_keep_CDATA)
     {
-	$lastWasText = 0;
+	undef $_DP_last_text;
 	# Merge text with previous node if possible
-	$expat->{DOM_Element}->addCDATA ($str);
+	$_DP_elem->addCDATA ($str);
     }
     else
     {
 	# Merge text with previous node if possible
 	# Used to be:	$expat->{DOM_Element}->addText ($str);
-	if ($lastWasText)
+	if ($_DP_last_text)
 	{
-	    $lastText->{Data} .= $str;
+	    $_DP_last_text->{Data} .= $str;
 	}
 	else
 	{
-	    $lastText = $expat->{DOM_Document}->createTextNode ($str);
-	    my $elem = $expat->{DOM_Element};
-	    $lastText->{Parent} = $elem;
-	    push @{$elem->{C}}, $lastText;
-	    $lastWasText = 1;
+	    $_DP_last_text = $_DP_doc->createTextNode ($str);
+	    $_DP_last_text->{Parent} = $_DP_elem;
+	    push @{$_DP_elem->{C}}, $_DP_last_text;
 	}
     }
 }
 
-if ($XML::Parser::VERSION < 2.20)
+sub Start
 {
-
-    # Used by Start() to check whether attributes were specified or defaulted
-    *checkUnspecAttr = sub
-    {
-	my ($expat, $str) = @_;
-	my %spec = ();
-	
-	while ($str =~ /\b($XML::DOM::ReName)=("[^"]*"|'[^']*')/go)	# ") leave this for Emacs
-	{
-	    $spec{$1} = $1;
-	}
-	$expat->{DOM_Spec} = \%spec;
-    };
-
-    *Start = sub
-    {
-	my ($expat, $elem, @attr) = @_;
-	my $parent = $expat->{DOM_Element};
-	my $doc = $expat->{DOM_Document};
-	
-	# See which attributes were specified and which were defaulted
-	if (@attr)
-	{
-	    # Performance hit: 12.58 sec => 13.39
-	    my $prev = $expat->{Handlers}->{Default};
-	    $expat->setHandlers (Default => \&XML::Parser::Dom::checkUnspecAttr);
-	    $expat->default_current;
-	    $expat->setHandlers (Default => $prev);
-	}
-	
-	if ($parent == $doc)
-	{
-	    # End of document prolog, i.e. start of first Element
-	    $expat->{DOM_inProlog} = 0;
-	}
-	
-	$lastWasText = 0;
-	my $node = $doc->createElement ($elem);
-	$expat->{DOM_Element} = $node;
-	$parent->appendChild ($node);
-	
-	my $spec = $expat->{DOM_Spec};
-	delete $expat->{DOM_Spec};
-	
-	my $i = 0;
-	my $n = @attr;
-	while ($i < $n)
-	{
-	    my $name = $attr[$i++];
-	    $lastWasText = 0;
-	    my $attr = $doc->createAttribute ($name, $attr[$i++], 
-					      defined ($spec->{$name}));
-	    $node->setAttributeNode ($attr);
-	}
-    };
+    my ($expat, $elem, @attr) = @_;
+    my $parent = $_DP_elem;
+    my $doc = $_DP_doc;
     
-} elsif ($XML::Parser::VERSION < 2.23) {	# 2.20, 2.21, 2.22
-    
-    *Start = sub
+    if ($parent == $doc)
     {
-	my ($expat, $elem, @attr) = @_;
-	my $parent = $expat->{DOM_Element};
-	my $doc = $expat->{DOM_Document};
-	
-	if ($parent == $doc)
-	{
-	    # End of document prolog, i.e. start of first Element
-	    $expat->{DOM_inProlog} = 0;
-	}
-	
-	$lastWasText = 0;
-	my $node = $doc->createElement ($elem);
-	$expat->{DOM_Element} = $node;
-	$parent->appendChild ($node);
-	
-	my $spec = $expat->{DOM_Spec};
-	delete $expat->{DOM_Spec};
-	
-	my $i = 0;
-	my $n = @attr;
-	while ($i < $n)
-	{
-	    my $name = $attr[$i++];
-	    $lastWasText = 0;
-	    my $attr = $doc->createAttribute ($name, $attr[$i++], 
-					      !$expat->is_defaulted ($name));
-	    $node->setAttributeNode ($attr);
-	}
+	# End of document prolog, i.e. start of first Element
+	$_DP_in_prolog = 0;
     }
-} else {	# $XML::Parser::VERSION >= 2.23
     
-    *Start = sub
+    undef $_DP_last_text;
+    my $node = $doc->createElement ($elem);
+    $_DP_elem = $node;
+    $parent->appendChild ($node);
+    
+    my $first_default = $expat->specified_attr;
+    my $i = 0;
+    my $n = @attr;
+    while ($i < $n)
     {
-	my ($expat, $elem, @attr) = @_;
-	my $parent = $expat->{DOM_Element};
-	my $doc = $expat->{DOM_Document};
-	
-	if ($parent == $doc)
-	{
-	    # End of document prolog, i.e. start of first Element
-	    $expat->{DOM_inProlog} = 0;
-	}
-	
-	$lastWasText = 0;
-	my $node = $doc->createElement ($elem);
-	$expat->{DOM_Element} = $node;
-	$parent->appendChild ($node);
-	
-	my $spec = $expat->{DOM_Spec};
-	delete $expat->{DOM_Spec};
-	
-	my $first_default = $expat->specified_attr;
-	my $i = 0;
-	my $n = @attr;
-	while ($i < $n)
-	{
-	    my $specified = $i < $first_default;
-	    my $name = $attr[$i++];
-	    $lastWasText = 0;
-	    my $attr = $doc->createAttribute ($name, $attr[$i++], $specified);
-	    $node->setAttributeNode ($attr);
-	}
+	my $specified = $i < $first_default;
+	my $name = $attr[$i++];
+	undef $_DP_last_text;
+	my $attr = $doc->createAttribute ($name, $attr[$i++], $specified);
+	$node->setAttributeNode ($attr);
     }
 }
 
 sub End
 {
-    my $expat = shift;
-    my $elem = $expat->{DOM_Element} = $expat->{DOM_Element}->{Parent};
-    $lastWasText = 0;
+    $_DP_elem = $_DP_elem->{Parent};
+    undef $_DP_last_text;
 
     # Check for end of root element
-    $expat->{DOM_endDoc} = 1 
-	if ($elem == $expat->{DOM_Document});
+    $_DP_end_doc = 1 if ($_DP_elem == $_DP_doc);
 }
 
 # Called at end of file, i.e. whitespace following last closing tag
+# Also for Entity references
 # May also be called at other times...
 sub Default
 {
@@ -4124,12 +4035,12 @@ sub Default
 
 #    shift; deb ("Default", @_);
 
-    if ($expat->{DOM_inProlog})	# still processing Document prolog...
+    if ($_DP_in_prolog)	# still processing Document prolog...
     {
 #?? could try to store this text later
 #?? I've only seen whitespace here so far
     }
-    elsif (!$expat->{DOM_endDoc})	# ignore whitespace at end of Document
+    elsif (!$_DP_end_doc)	# ignore whitespace at end of Document
     {
 #	if ($expat->{NoExpand})
 #	{
@@ -4137,9 +4048,9 @@ sub Default
 	    return unless defined ($1);
 	    # Got a TextDecl (<?xml ...?>) from an external entity here once
 
-	    $expat->{DOM_Element}->appendChild (
-			$expat->{DOM_Document}->createEntityReference ($1));
-	    $lastWasText = 0;
+	    $_DP_elem->appendChild (
+			$_DP_doc->createEntityReference ($1));
+	    undef $_DP_last_text;
 #	}
 #	else
 #	{
@@ -4153,20 +4064,19 @@ sub Default
 # with the text "<![CDATA[" and "]]"
 sub CdataStart
 {
-    $_[0]->{DOM_inCDATA} = 1;
+    $_DP_in_CDATA = 1;
 }
 
 sub CdataEnd
 {
-    $_[0]->{DOM_inCDATA} = 0;
+    $_DP_in_CDATA = 0;
 }
 
 sub Comment
 {
-    my ($expat, $str) = @_;
-    $lastWasText = 0;
-    my $comment = $expat->{DOM_Document}->createComment ($str);
-    $expat->{DOM_Element}->appendChild ($comment);
+    undef $_DP_last_text;
+    my $comment = $_DP_doc->createComment ($_[1]);
+    $_DP_elem->appendChild ($comment);
 }
 
 sub deb
@@ -4182,8 +4092,8 @@ sub Doctype
     my $expat = shift;
 #    deb ("Doctype", @_);
 
-    $expat->{DOM_Doctype}->setParams (@_);
-    $expat->{DOM_sawDoctype} = 1;
+    $_DP_doctype->setParams (@_);
+    $_DP_saw_doctype = 1;
 }
 
 sub Attlist
@@ -4191,7 +4101,7 @@ sub Attlist
     my $expat = shift;
 #    deb ("Attlist", @_);
 
-    $expat->{DOM_Doctype}->addAttDef (@_);
+    $_DP_doctype->addAttDef (@_);
 }
 
 sub XMLDecl
@@ -4199,9 +4109,8 @@ sub XMLDecl
     my $expat = shift;
 #    deb ("XMLDecl", @_);
 
-    my $doc = $expat->{DOM_Document};
-    $lastWasText = 0;
-    $doc->setXMLDecl (new XML::DOM::XMLDecl ($doc, @_));
+    undef $_DP_last_text;
+    $_DP_doc->setXMLDecl (new XML::DOM::XMLDecl ($_DP_doc, @_));
 }
 
 sub Entity
@@ -4217,36 +4126,44 @@ sub Entity
 	$parameter = 1;
     }
 
-    $lastWasText = 0;
-    $expat->{DOM_Doctype}->addEntity ($parameter, @_);
+    undef $_DP_last_text;
+    $_DP_doctype->addEntity ($parameter, @_);
+}
+
+# Unparsed is called when it encounters e.g:
+#
+#   <!ENTITY logo SYSTEM "http://server/logo.gif" NDATA gif>
+#
+sub Unparsed
+{
+    Entity (@_);	# same as regular ENTITY, as far as DOM is concerned
 }
 
 sub Element
 {
-    my $expat = shift;
+    shift;
 #    deb ("Element", @_);
 
-    $lastWasText = 0;
-    $expat->{DOM_Doctype}->addElementDecl (@_);
+    undef $_DP_last_text;
+    $_DP_doctype->addElementDecl (@_);
 }
 
 sub Notation
 {
-    my $expat = shift;
+    shift;
 #    deb ("Notation", @_);
 
-    $lastWasText = 0;
-    $expat->{DOM_Doctype}->addNotation (@_);
+    undef $_DP_last_text;
+    $_DP_doctype->addNotation (@_);
 }
 
 sub Proc
 {
-    my $expat = shift;
+    shift;
 #    deb ("Proc", @_);
 
-    my $doc = $expat->{DOM_Document};
-    $lastWasText = 0;
-    $doc->appendChild (new XML::DOM::ProcessingInstruction ($doc, @_));
+    undef $_DP_last_text;
+    $_DP_doc->appendChild (new XML::DOM::ProcessingInstruction ($_DP_doc, @_));
 }
 
 # ExternEnt is called when an external entity, such as:
@@ -4261,18 +4178,6 @@ sub Proc
 #sub ExternEnt
 #{
 #    deb ("ExternEnt", @_);
-#}
-
-#
-# Unparsed is called when it encounters e.g:
-#
-#   <!ENTITY logo SYSTEM "http://server/logo.gif" NDATA gif>
-#
-# But Entity is also called, so XML::DOM doesn't need to do anything.
-#
-#sub Unparsed
-#{
-#    deb ("Unparsed", @_);
 #}
 
 1; # module return code
@@ -4632,16 +4537,6 @@ Return Value: The node removed.
 DOMExceptions:
 
 =over 4
-
-=item * HIERARCHY_REQUEST_ERR
-
-Raised if this node is of a type that does not allow children of the type of
-the newChild node, or it the node to put in is one of this node's ancestors.
-
-=item * WRONG_DOCUMENT_ERR
-
-Raised if newChild was created from a different document than the one that 
-created this node.
 
 =item * NO_MODIFICATION_ALLOWED_ERR
 
@@ -5550,7 +5445,7 @@ B<Not In DOM Spec>: See XML::DOM::ignoreReadOnly to edit the DocumentType etc.
 
 A new DocumentType can be created with:
 
-	$doctype = $doc->createDocumentType ($name, $sysId, $pubId);
+	$doctype = $doc->createDocumentType ($name, $sysId, $pubId, $internal);
 
 To set (or replace) the DocumentType for a particular document, use:
 
@@ -6081,6 +5976,9 @@ child nodes of the Document.
 =back
 
 =head1 SEE ALSO
+
+The Japanese version of this document by Takanori Kawai (Hippo2000)
+at http://member.nifty.ne.jp/hippo2000/perltips/xml/dom.htm 
 
 The XML::DOM::UTF8 manual page.
 
