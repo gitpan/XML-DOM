@@ -1,0 +1,44 @@
+Change History:
+
+1.08 (enno)
+- No changes - I messed up uploading to PAUS and had to up the version number.
+
+1.07 (enno)
+- added Node::isElementNode for optimization
+- added NamedNodeMap::getChildIndex
+- fixed documentation regarding getNodeValue. It said it should return
+  getTagName for Element nodes, but it should return undef.
+  (thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+- added CAVEATS in documentation (getElementsByTagName does not return "live"
+  NodeLists)
+- added section about Notation node in documentation
+
+1.06 (enno) 11/16/1998
+- fixed example in the SYNOPSIS of the man page
+  (thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+- added test case t/example.t (it's also a simple example)
+
+1.05 (enno) 11/11/1998
+- added use strict, use vars etc.
+- fixed replaceData - changed $str to $data
+- merged getElementsByTagName and getElementsByTagName2
+- added parsing of attributes (CheckUnspecAttr) to support Attr::isSpecified
+- added XML::DOM::Parser class to perform proper cleanup when an exception
+  is thrown
+- more performance improvements, e.g. SafeMode, removed SUPER::new
+- added frequency comments for performance optimization: e.g. "REC 7473" 
+  means that that code is hit 7473 times when parsing REC-xml-19980210.xml
+- updated POD documentation
+- fixed problem in perl 5.004 (can't seems to use references to strings, e.g.
+  *str = \ "constant";)
+
+1.04 (enno) 10/21/1998
+- Removed internal calls to getOwnerDocument, getParentNode
+- fixed isAncestor: $node->isAncestor($node) should return true
+- Fixed ReadOnly mechanism. Added isAlwaysReadOnly.
+- DocumentType::getDefaultAttrValue was using getElementDecl 
+  instead of getAttlistDecl
+- Attr::cloneNode cloneChildren was missing 2nd parameter=1 (deep)
+- NamedNodeMap::cloneNode forgot to copy {Values} list
+- Element::setAttributeNode was comparing {UsedIn} against $self instead of {A}
+- fixed AttDef::cloneNode, Value was copied wrong
