@@ -14,6 +14,7 @@
 # * maybe: more checking of sysId etc.
 # * NoExpand mode (don't know what else is useful)
 # * various odds and ends: see comments starting with "??"
+# * normalize(1) should also expand CDataSections and EntityReferences
 #
 # Update for UTF-8 support:
 #
@@ -53,7 +54,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.09';
+    $VERSION = '1.10';
 
     my $needVersion = '2.16';
     die "need XML::Parser version $needVersion"
@@ -1046,8 +1047,6 @@ sub normalize
 
 	if (defined $prev)
 	{
-#?? should it expand EntityReferences?
-
 	    # It should not merge CDATASections. Dom Spec says:
 	    #  Adjacent CDATASections nodes are not merged by use
 	    #  of the Element.normalize() method.
@@ -3812,7 +3811,7 @@ sub checkUnspecAttr
     my ($expat, $str) = @_;
     my %spec = ();
 
-    while ($str =~ /\b(\w+)=("[^"]*"|'[^']*')/g)	# ") leave this for Emacs
+    while ($str =~ /\b($XML::DOM::ReName)=("[^"]*"|'[^']*')/go)	# ") leave this for Emacs
     {
 	$spec{$1} = $1;
     }

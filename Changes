@@ -1,21 +1,30 @@
 Change History:
 
-1.09 (enno)
+1.10 (enno) 12/8/1998
+- Attributes with non-alphanumeric characters in the attribute name (like "-") 
+  were mistaken for default attribute values. (Bug in checkUnspecAttr regexp.)
+  Default attribute values aren't printed out, so it appeared those attributes
+  just vanished.
+  (Thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+
+1.09 (enno) 12/3/1998
 - Changed NamedNodeMap {Values} to a NodeList instead of []
   This way getValues can return a (live) NodeList.
 - Added NodeList and NamedNodeMap to documentation
 - Fixed documentation section near list of node type constants. 
   I accidentally pasted some text in between and messed up that whole section.
+- getNodeTypeName() always returned empty strings and the documentation
+  said @XML::DOM::NodeNames, which should have been @XML::DOM::Node::NodeNames
   (Thanks to Andrew Fitzhugh at fitzhugh@cup.hp.com)
 - Added dispose to NodeList
 - Added setOwnerDocument to all Nodes, NodeList and NamedNodeMap, to allow 
   cut and paste between XML::DOM::Documents. 
   It does nothing when called on a Document node.
 
-1.08 (enno)
+1.08 (enno) 12/1/1998
 - No changes - I messed up uploading to PAUS and had to up the version number.
 
-1.07 (enno)
+1.07 (enno) 12/1/1998
 - added Node::isElementNode for optimization
 - added NamedNodeMap::getChildIndex
 - fixed documentation regarding getNodeValue. It said it should return
