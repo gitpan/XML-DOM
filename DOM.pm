@@ -9,7 +9,9 @@
 #
 # To do:
 #
-# * fix Exceptions
+# * BUG: setOwnerDocument - does not process default attr values correctly,
+#   they still point to the old doc.
+# * change Exception mechanism
 # * entity expansion
 # * maybe: more checking of sysId etc.
 # * NoExpand mode (don't know what else is useful)
@@ -17,9 +19,6 @@
 # * normalize(1) should also expand CDataSections and EntityReferences
 # * parse a DocumentFragment?
 # * encoding support
-# * broken link in web page to UTF8.html
-# * support printing empty tag as <br /> (note the space!)
-# * print empty Doctype without '[' and ']'
 # * someone reported an error that an Entity or something contained a single
 #   quote and it printed ''' or something...
 #
@@ -58,7 +57,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.24';
+    $VERSION = '1.25';
 
     my $needVersion = '2.23';
     die "need at least XML::Parser version $needVersion (current=" .
@@ -940,15 +939,15 @@ sub appendChild
 	    {
 		croak new XML::DOM::DOMException (WRONG_DOCUMENT_ERR,
 						  "nodes belong to different documents")
-		if $doc != $n->{Doc};
+		    if $doc != $n->{Doc};
 		
 		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
 						  "node is ancestor of parent node")
-		if $n->isAncestor ($self);
+		    if $n->isAncestor ($self);
 		
 		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
 						  "bad node type")
-		if $self->rejectChild ($n);
+		    if $self->rejectChild ($n);
 	    }
 	}
 
@@ -967,11 +966,11 @@ sub appendChild
 						  "nodes belong to different documents")
 		if $doc != $node->{Doc};
 		
-		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+	    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
 						  "node is ancestor of parent node")
 		if $node->isAncestor ($self);
 		
-		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+	    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
 						  "bad node type")
 		if $self->rejectChild ($node);
 	}
@@ -1086,36 +1085,41 @@ sub replaceChild
 {
     my ($self, $node, $refNode) = @_;
 
-    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
-				      "bad node type")
-	if $self->rejectChild ($node) and not 
-	  ($self == $self->{Doc} && $node->getNodeType == ELEMENT_NODE &&
-	   $refNode == $self->getDocumentElement);
-    # NOTE: Special case. rejectChild() does not allow $node to be an Element
-    # node for a Document, when it already has a documentElement.
-    # (To prevent two Element nodes from being added to a Document.)
-    # But, since we're replacing here, it should be OK...
-
     croak new XML::DOM::DOMException (NO_MODIFICATION_ALLOWED_ERR,
 				      "node is ReadOnly")
 	if $self->isReadOnly;
 
-    croak new XML::DOM::DOMException (WRONG_DOCUMENT_ERR,
-				      "nodes belong to different documents")
-	if $self->{Doc} != $node->{Doc};
+    my @nodes = ($node);
+    @nodes = @{$node->{C}}
+	if $node->getNodeType == DOCUMENT_FRAGMENT_NODE;
+
+    for my $n (@nodes)
+    {
+	croak new XML::DOM::DOMException (WRONG_DOCUMENT_ERR,
+					  "nodes belong to different documents")
+	    if $self->{Doc} != $n->{Doc};
+
+	croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+					  "node is ancestor of parent node")
+	    if $n->isAncestor ($self);
+
+	croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+					  "bad node type")
+	    if $self->rejectChild ($n);
+    }
 
     my $index = $self->getChildIndex ($refNode);
-
     croak new XML::DOM::DOMException (NOT_FOUND_ERR,
 				      "reference node not found")
 	if $index == -1;
 
-    splice (@{$self->{C}}, $index, 1, $node);
+    for my $n (@nodes)
+    {
+	$n->setParentNode ($self);
+    }
+    splice (@{$self->{C}}, $index, 1, @nodes);
 
     $refNode->removeChildHoodMemories;
-
-    $node->setParentNode ($self);
-
     $refNode;
 }
 
@@ -1219,7 +1223,7 @@ sub getElementsByTagName
 	    {
 		push @{$list}, $kid;
 	    }
-	    $kid->getElementsByTagName ($tagName, $recurse, $list);
+	    $kid->getElementsByTagName ($tagName, $recurse, $list) if $recurse;
 	}
     }
     wantarray ? @{ $list } : $list;
@@ -3623,6 +3627,7 @@ package XML::DOM::Document;
 
 BEGIN 
 {
+    import Carp;
     import XML::DOM::Node;
     import XML::DOM::DOMException;
 }
@@ -3740,6 +3745,86 @@ sub cloneNode
     $node;
 }
 
+sub appendChild
+{
+    my ($self, $node) = @_;
+
+    # Extra check: make sure sure we don't end up with more than 1 Elements.
+    # Don't worry about multiple DocType nodes, because DocumentFragment
+    # can't contain DocType nodes.
+
+    my @nodes = ($node);
+    @nodes = @{$node->{C}}
+        if $node->getNodeType == DOCUMENT_FRAGMENT_NODE;
+    
+    my $elem = 0;
+    for my $n (@nodes)
+    {
+	$elem++ if $n->isElementNode;
+    }
+    
+    if ($elem > 0 && defined ($self->getDocumentElement))
+    {
+	croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+					  "document can have only 1 Element");
+    }
+    $self->SUPER::appendChild ($node);
+}
+
+sub insertBefore
+{
+    my ($self, $node, $refNode) = @_;
+
+    # Extra check: make sure sure we don't end up with more than 1 Elements.
+    # Don't worry about multiple DocType nodes, because DocumentFragment
+    # can't contain DocType nodes.
+
+    my @nodes = ($node);
+    @nodes = @{$node->{C}}
+	if $node->getNodeType == DOCUMENT_FRAGMENT_NODE;
+    
+    my $elem = 0;
+    for my $n (@nodes)
+    {
+	$elem++ if $n->isElementNode;
+    }
+    
+    if ($elem > 0 && defined ($self->getDocumentElement))
+    {
+	croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+					  "document can have only 1 Element");
+    }
+    $self->SUPER::insertBefore ($node, $refNode);
+}
+
+sub replaceChild
+{
+    my ($self, $node, $refNode) = @_;
+
+    # Extra check: make sure sure we don't end up with more than 1 Elements.
+    # Don't worry about multiple DocType nodes, because DocumentFragment
+    # can't contain DocType nodes.
+
+    my @nodes = ($node);
+    @nodes = @{$node->{C}}
+	if $node->getNodeType == DOCUMENT_FRAGMENT_NODE;
+    
+    my $elem = 0;
+    $elem-- if $refNode->isElementNode;
+
+    for my $n (@nodes)
+    {
+	$elem++ if $n->isElementNode;
+    }
+    
+    if ($elem > 0 && defined ($self->getDocumentElement))
+    {
+	croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+					  "document can have only 1 Element");
+    }
+    $self->SUPER::appendChild ($node, $refNode);
+}
+
 #------------------------------------------------------------
 # Extra method implementations
 
@@ -3794,13 +3879,8 @@ sub removeDoctype
 sub rejectChild
 {
     my $t = $_[1]->getNodeType;
-
-    if ($t == ELEMENT_NODE)
-    {
-	return defined ($_[0]->getDocumentElement);
-    }
-
-    $t != PROCESSING_INSTRUCTION_NODE
+    $t != ELEMENT_NODE
+	&& $t != PROCESSING_INSTRUCTION_NODE
 	&& $t != COMMENT_NODE
 	&& $t != DOCUMENT_TYPE_NODE;
 }
@@ -3835,8 +3915,8 @@ sub dispose
 {
     my $self = shift;
 
-    $self->{XMLDecl}->dispose if defined $self->{XMLDecl};
-    delete $self->{XMLDecl};
+    $self->{XmlDecl}->dispose if defined $self->{XmlDecl};
+    delete $self->{XmlDecl};
     delete $self->{Doctype};
     $self->SUPER::dispose;
 }
@@ -4143,9 +4223,9 @@ sub Entity
     
     # Parameter Entities names are passed starting with '%'
     my $parameter = 0;
-    if ($_[0] =~ /^%/)
+    if ($_[0] =~ /^%(.*)/s)
     {
-	$_[0] = $';
+	$_[0] = $1;
 	$parameter = 1;
     }
 

@@ -1,5 +1,16 @@
 Change History:
 
+1.25 (enno) 8/24/1999
+- Removed $`, $' and $& from code to speed up pattern matching in general
+- Fixed replaceChild() to process a DocumentFragment correctly
+  (Thanks to Michael Stillwel <mjs@beebo.org>)
+- Fixed appendChild, replaceChild and insertBefore for Document nodes, so you
+  can't add multiple Element nodes.
+- The XmlDecl field was called XMLDecl in certain place.
+  (Thanks to Matt Sergeant <matt@sergeant.org>)
+- Fixed the non-recursive getElementsByTagName
+  (Thanks to Geert Josten <gjosten@sci.kun.nl>)
+
 1.24 (enno) 8/2/1999
 - Processing Instructions inside an Element node were accidentally added to
   the Document node.
