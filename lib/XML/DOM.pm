@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.38';
+    $VERSION = '1.39';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -1814,7 +1814,7 @@ use vars qw{ @ISA @EXPORT_OK %EXPORT_TAGS %HFIELDS };
 BEGIN
 {
     import XML::DOM::Node qw( :DEFAULT :Fields );
-    XML::DOM::def_fields ("EntityName Parameter", "XML::DOM::Node");
+    XML::DOM::def_fields ("EntityName Parameter NoExpand", "XML::DOM::Node");
 }
 
 use XML::DOM::DOMException;
@@ -1822,7 +1822,7 @@ use Carp;
 
 sub new
 {
-    my ($class, $doc, $name, $parameter) = @_;
+    my ($class, $doc, $name, $parameter, $noExpand) = @_;
 
     croak new XML::DOM::DOMException (INVALID_CHARACTER_ERR, 
 		      "bad Entity Name [$name] in EntityReference")
@@ -1833,6 +1833,8 @@ sub new
     $self->[_Doc] = $doc;
     $self->[_EntityName] = $name;
     $self->[_Parameter] = ($parameter || 0);
+    $self->[_NoExpand] = ($noExpand || 0);
+
     $self;
 }
 
@@ -1865,11 +1867,17 @@ sub getData
     my $name = $self->[_EntityName];
     my $parameter = $self->[_Parameter];
 
-    my $data = $self->[_Doc]->expandEntity ($name, $parameter);
+    my $data;
+    if ($self->[_NoExpand]) {
+      $data = "&$name;" if $name;
+    } else {
+      $data = $self->[_Doc]->expandEntity ($name, $parameter);
+    }
 
     unless (defined $data)
     {
-#?? this is probably an error
+#?? this is probably an error, but perhaps requires check to NoExpand
+# will fix it?
 	my $pc = $parameter ? "%" : "&";
 	$data = "$pc$name;";
     }
@@ -1908,7 +1916,9 @@ sub cloneNode
 {
     my $self = shift;
     $self->[_Doc]->createEntityReference ($self->[_EntityName], 
-					 $self->[_Parameter]);
+                                         $self->[_Parameter],
+                                         $self->[_NoExpand],
+                                          );
 }
 
 sub to_expat
@@ -4434,8 +4444,9 @@ sub Default
 	    return unless defined ($1);
 	    # Got a TextDecl (<?xml ...?>) from an external entity here once
 
+	    # create non-parameter entity reference, correct?
 	    $_DP_elem->appendChild (
-			$_DP_doc->createEntityReference ($1));
+		   $_DP_doc->createEntityReference ($1,0,$expat->{NoExpand}));
 	    undef $_DP_last_text;
 #	}
 #	else
@@ -4546,6 +4557,13 @@ sub Entity
 	}
     }
 
+    # no value on things with sysId
+    if (defined $_[2] && defined $_[1])
+    {
+        # print STDERR "XML::DOM Warning $_[0] had both value($_[1]) And SYSId ($_[2]), removing value.\n";
+        $_[1] = undef;
+    }
+
     undef $_DP_last_text;
 
     $_[6] = "Hidden" unless $_DP_expand_pent || $_DP_level == 0;
@@ -4646,7 +4664,7 @@ sub ExternEnt
 	my $entname = $expat->{DOM_Entity}->{$sysid};
 	if (defined $entname)
 	{
-	    $_DP_doctype->appendChild ($_DP_doc->createEntityReference ($entname, 1));
+	    $_DP_doctype->appendChild ($_DP_doc->createEntityReference ($entname, 1, $expat->{NoExpand}));
             # Wrap the contents in special comments, so we know when we reach the
 	    # end of parsing the entity. This way we can omit the contents from
 	    # the DTD, when ExpandParamEnt is set to 0.
@@ -4870,7 +4888,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.38".
+implementation, e.g. "1.39".
 
 =back
 

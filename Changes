@@ -1,5 +1,11 @@
 Change History for XML-DOM:
 
+1.39 (tjmather) 04/16/2002
+- Deletes value if both System ID and value are defined
+  (Brian Thomas)
+- Fixed bug, now TextNode->getData doesn't expand entities when
+  NoExpand => 1, added t/dom_noexpand.t test script (Brian Thomas)
+
 1.38 (tjmather) 04/05/2002
 - Removed bin/pretty.pl, it is now in XML-Filter-Reindent
 - Removed return from addCDATA function to fix memory leak
