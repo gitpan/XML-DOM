@@ -15,36 +15,6 @@ I need to add a lot more stuff and make sure it is valid XML.
   <topic>
    <question>
 
-'make test' error in t/xql_date.t and t/xql_new.t
-
-   </question>
-   <answer>
-
-Probably related to Date::Manip, which is used in XML::XQL to create Date 
-objects. Check the version number. I'm using 5.33. I know 5.20 doesn't work.
-Note that you only need this to work if you want to use the XQL 'date()' 
-function, otherwise ignore the errors.
-
-   </answer>
-  </topic>
-
-  <topic>
-   <question>
-
-'make test' error in t/dom_extent.t
-
-   </question>
-   <answer>
-
-The error is related to external entity support in XML::Parser, which (I believe) was added in
-XML::Parser 2.27. Upgrade to 2.27 or ignore the error.
-
-   </answer>
-  </topic>
-
-  <topic>
-   <question>
-
 'unrecognized pod directive in ...: head3' warnings in 'make install'
 
    </question>

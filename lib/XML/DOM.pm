@@ -2,7 +2,7 @@
 #
 # Perl module: XML::DOM
 #
-# By Enno Derksen <enno@att.com>
+# By Enno Derksen
 #
 ################################################################################
 #
@@ -5068,12 +5068,14 @@ Let me know what you think.
 (To subscribe to the www-dom mailing list send an email with the subject 
 "subscribe" to www-dom-request@w3.org. I only look here occasionally, so don't
 send bug reports or suggestions about XML::DOM to this list, send them
-to enno@att.com instead.)
+to tjmather@tjmather.com instead.)
 
 =head1 AUTHOR
 
-Send bug reports, hints, tips, suggestions to Enno Derksen at
-<F<enno@att.com>>. 
+Enno Derksen is the original author.
+
+Send bug reports, hints, tips, suggestions to T.J. Mather at
+<F<tjmather@tjmather.com>>.
 
 Thanks to Clark Cooper for his help with the initial version.
 

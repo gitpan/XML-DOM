@@ -1,5 +1,12 @@
 Change History for XML-DOM:
 
+1.32 (tjmather) 8/25/2001
+- Separated out XML::UM, XML::Filter::* and XML::Builder::* modules
+	into separate distributions (Idea of Matt Sergeant, as discussed
+	on perl-xml@listserver.activestate.com)
+- Removed dependecy on Parse::Yapp - shouldn't have been there in the first
+	place.
+
 1.31 (tjmather) 6/26/2001
 - Added dependency check for XML::RegExp in Makefile.PL
 
@@ -31,7 +38,7 @@ libxml-enno-1.04 (tjmather) 3/20/2001
   entity.
 - DOM: Fixed errors in test cases t/build_dom.t t/dom_attr.t by changing
   hair (none | blue | yellow) "yellow" to hair (none|blue|yellow) 'yellow'
-  Also fixed t/dom_jp_attr by changing equivilent japenese text.
+  Also fixed t/dom_jp_attr by changing equivalent japanese text.
 - DOM: Fixed errors in test cases t/dom_print.t and t/dom_jp_print.t
   by changing <!ELEMENT doc (beavis | butthead)*> to
   <!ELEMENT doc (beavis|butthead)*>
