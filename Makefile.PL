@@ -28,7 +28,6 @@ WriteMakefile(
 		   # Maybe requiring Date::Manip 5.33 is too strict,
 		   # it's what I was using. I know 5.20 doesn't work.
 		   # I also know that 5.36 works.
-		   'Date::Manip' => '5.33', 
 		   'Parse::Yapp' => '0',
 		   # LWP::UserAgent is used when parsing XML from URLs
 		   # It's part of libwww-perl, and you don't strictly need it
@@ -39,6 +38,7 @@ WriteMakefile(
 		   # don't strictly need it. Version 0.05 causes errors in the
 		   # test cases in t/chk_batch.t.
 		   'XML::Parser::PerlSAX' => '0.07',
+		   'XML::RegExp' => 0,
 		   },
     dist        => {'COMPRESS'  => 'gzip', 'SUFFIX'    => '.gz'},
 );
