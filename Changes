@@ -1,5 +1,11 @@
 Change History for XML-DOM:
 
+1.42 (tjmather) 12/05/2002
+- Fixed bug where XML::DOM doesn't encode some characters in
+attribute values under Perl 5.8.0 (Steve Hay)
+- Added t/dom_encode.t test to check encoding on attribute values
+- Fixed warning message and use in XML::DOM::PerlSAX (Mike Castle)
+
 1.41 (tjmather) 10/19/2002
 - included XML-Parser-2.31.patch, required for XML::Parser
 to work with 5.8.0 unicode

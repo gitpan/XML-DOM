@@ -5,14 +5,13 @@ BEGIN
 {
     if ($^W)
     {
-	warn "XML::DOM::PerlSAX has been renamed to XML::Handler::DOM, "
-	    "please modify your code accordingly.";
+	warn "XML::DOM::PerlSAX has been renamed to XML::Handler::BuildDOM, please modify your code accordingly.";
     }
 }
 
-use XML::Handler::DOM;
+use XML::Handler::BuildDOM;
 use vars qw{ @ISA };
-@ISA = qw{ XML::Handler::DOM };
+@ISA = qw{ XML::Handler::BuildDOM };
 
 1; # package return code
 

@@ -41,6 +41,7 @@ t/dom_astress.t			dom_*.t are test cases for XML::DOM
 t/dom_attr.t
 t/dom_cdata.t
 t/dom_documenttype.t
+t/dom_encode.t
 t/dom_example.t
 t/dom_extent.dtd
 t/dom_extent.ent

@@ -12,7 +12,10 @@ development and significantly faster than XML::DOM, since it is based on
 the libgdome C library.  It provides Level 2 of the DOM Core API.  For
 more details see http://tjmather.com/xml-gdome/
 
-For bug reports or suggestions send email to tjmather@tjmather.com
+Patches welcome!  Send them to tjmather@maxmind.com
+
+Paid support is available from directly from the maintainers of this package.
+Please see http://www.maxmind.com/app/opensourceservices for more details.
 
 ========= DEPENDENCIES =========================================================
 

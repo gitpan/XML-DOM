@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.41';
+    $VERSION = '1.42';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -278,11 +278,15 @@ sub encodeText
     my ($str, $default) = @_;
     return undef unless defined $str;
 
-    return $str if $] >= 5.006;
-    
-    $str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
-	defined($1) ? XmlUtf8Decode ($1) : 
-	defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egs;
+    if ($] >= 5.006) {
+      $str =~ s/([$default])|(]]>)/
+        defined ($1) ? $DecodeDefaultEntity{$1} : "]]&gt;" /egs;
+    }
+    else {
+      $str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
+        defined($1) ? XmlUtf8Decode ($1) :
+        defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egs;
+    }
 
 #?? could there be references that should not be expanded?
 # e.g. should not replace &#nn; &#xAF; and &abc;
@@ -4896,7 +4900,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.41".
+implementation, e.g. "1.42".
 
 =back
 
@@ -5097,7 +5101,7 @@ download the Gnome libxml library.
 L<XML::GDOME> will provide the DOM Level 2 Core API, and should be
 as fast as XML::LibXML, but more robust, since it uses the memory
 management functions of libgdome.  For more details see
-http://tjmather.com/xml-gdome/
+L<http://tjmather.com/xml-gdome/>
 
 =head1 CAVEATS
 
@@ -5107,17 +5111,14 @@ www-dom mailing list seemed to think so. I haven't decided yet. It's a pain
 to implement, it slows things down and the benefits seem marginal.
 Let me know what you think. 
 
-(To subscribe to the www-dom mailing list send an email with the subject 
-"subscribe" to www-dom-request@w3.org. I only look here occasionally, so don't
-send bug reports or suggestions about XML::DOM to this list, send them
-to tjmather@tjmather.com instead.)
-
 =head1 AUTHOR
 
 Enno Derksen is the original author.
 
-Send bug reports, hints, tips, suggestions to T.J. Mather at
-<F<tjmather@tjmather.com>>.
+Send patches to T.J. Mather at <F<tjmather@maxmind.com>>.
+
+Paid support is available from directly from the maintainers of this package.
+Please see L<http://www.maxmind.com/app/opensourceservices> for more details.
 
 Thanks to Clark Cooper for his help with the initial version.
 
