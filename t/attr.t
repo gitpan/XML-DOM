@@ -1,4 +1,4 @@
-BEGIN {print "1..19\n";}
+BEGIN {print "1..20\n";}
 END {print "not ok 1\n" unless $loaded;}
 use XML::DOM;
 use CheckAncestors;
@@ -97,3 +97,5 @@ unless (assert_ok ($doc->equals ($doc2, $cmp)))
     # This shouldn't happen
     print "Context: ", $cmp->context, "\n";
 }
+
+assert_ok ($hair->getNodeTypeName eq "ATTRIBUTE_NODE");

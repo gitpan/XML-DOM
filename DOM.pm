@@ -53,7 +53,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.08';
+    $VERSION = '1.09';
 
     my $needVersion = '2.16';
     die "need XML::Parser version $needVersion"
@@ -432,7 +432,7 @@ sub new
 {
     my ($class, %args) = @_;
 
-    $args{Values} = [];
+    $args{Values} = new XML::DOM::NodeList;
 
     # Store all NamedNodeMap properties in element $Special
     bless { $Special => \%args}, $class;
@@ -609,6 +609,18 @@ sub cloneNode
     $map;
 }
 
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    my $special = $self->{$Special};
+
+    $special->{Doc} = $doc;
+    for my $kid (@{$special->{Values}})
+    {
+	$kid->setOwnerDocument ($doc);
+    }
+}
+
 sub getChildIndex
 {
     my ($self, $attr) = @_;
@@ -655,7 +667,7 @@ sub setParentNode
 
 sub getProperty
 {
-    return $_[0]->{$Special}->{$_[1]};
+    $_[0]->{$Special}->{$_[1]};
 }
 
 #?? remove after debugging
@@ -712,6 +724,27 @@ sub item
 sub getLength 
 {
     int (@{$_[0]});
+}
+
+#------------------------------------------------------------
+# Extra method implementations
+
+sub dispose
+{
+    my $self = shift;
+    for my $kid (@{$self})
+    {
+	$kid->dispose;
+    }
+}
+
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    for my $kid (@{$self})
+    { 
+	$kid->setOwnerDocument ($doc);
+    }
 }
 
 ######################################################################
@@ -859,6 +892,7 @@ sub appendChild
 sub getChildNodes
 {
     # NOTE: if node can't have children, $self->{C} is undef.
+#?? maybe this should work differently
     $_[0]->{C};
 }
 
@@ -1099,6 +1133,17 @@ sub getAttributes
 #------------------------------------------------------------
 # Extra method implementations
 
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    $self->{Doc} = $doc;
+
+    for my $kid (@{$self->{C}})
+    {
+	$kid->setOwnerDocument ($doc);
+    }
+}
+
 sub cloneChildren
 {
     my ($self, $node, $deep) = @_;
@@ -1133,11 +1178,11 @@ sub dispose
 
     $self->removeChildHoodMemories (1);		# don't wipe ReadOnly attributes
 
-    for my $kid (@{$self->{C}})
+    if (defined $self->{C})
     {
-	$kid->dispose;
+	$self->{C}->dispose;
+	delete $self->{C};
     }
-    delete $self->{C};
     delete $self->{Doc};
 }
 
@@ -1217,7 +1262,7 @@ sub rejectChild
 
 sub getNodeTypeName
 {
-    $XML::DOM::NodeNames[$_[0]->getNodeType];
+    $NodeNames[$_[0]->getNodeType];
 }
 
 sub getChildIndex
@@ -2141,6 +2186,17 @@ sub cloneNode
     $node;
 }
 
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    $self->SUPER::setOwnerDocument ($doc);
+
+    if (defined $self->{Default})
+    {
+	$self->{Default}->setOwnerDocument ($doc);
+    }
+}
+
 ######################################################################
 package XML::DOM::AttlistDecl;
 ######################################################################
@@ -2240,6 +2296,14 @@ sub cloneNode
     $node->{A} = $self->{A}->cloneNode ($deep);
     $node->{A}->setReadOnly (1);
     $node;
+}
+
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    $self->SUPER::setOwnerDocument ($doc);
+
+    $self->{A}->setOwnerDocument ($doc);
 }
 
 sub print
@@ -2563,6 +2627,14 @@ sub dispose
 
     $self->{A}->dispose;
     $self->SUPER::dispose;
+}
+
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    $self->SUPER::setOwnerDocument ($doc);
+
+    $self->{A}->setOwnerDocument ($doc);
 }
 
 sub print
@@ -3136,6 +3208,15 @@ sub dispose
     $self->SUPER::dispose;
 }
 
+sub setOwnerDocument
+{
+    my ($self, $doc) = @_;
+    $self->SUPER::setOwnerDocument ($doc);
+
+    $self->{Entities}->setOwnerDocument ($doc);
+    $self->{Notations}->setOwnerDocument ($doc);
+}
+
 sub expandEntity
 {
     my ($self, $ent, $param) = @_;
@@ -3583,6 +3664,11 @@ sub dispose
     $self->SUPER::dispose;
 }
 
+sub setOwnerDocument
+{
+    # Do nothing, you can't change the owner document!
+}
+
 sub getXMLDecl
 {
     $_[0]->{XmlDecl};
@@ -3999,36 +4085,7 @@ The following predefined constants indicate which type of node it is.
  UNKNOWN_NODE (0)                The node type is unknown (not part of DOM)
 
  ELEMENT_NODE (1)                The node is an Element.
- ATTRIBUTE_NODE (2)              The node is an Attr.rser is derived from XML::Parser. It parses XML strings or files
-and builds a data structure that conforms to the API of the Document Object 
-Model as described at http://www.w3.org/TR/REC-DOM-Level-1.
-See the XML::Parser manpage for other available features of the 
-XML::DOM::Parser class. 
-Note that the 'Style' property should not be used (it is set internally.)
-
-The XML::Parser I<NoExpand> option is more or less supported, in that it will
-generate EntityReference objects whenever an entity reference is encountered
-in character data. I'm not sure how useful this is. Any comments are welcome.
-
-As described in the synopsis, when you create an XML::DOM::Parser object, 
-the parse and parsefile methods create an I<XML::DOM::Document> object
-from the specified input. This Document object can then be examined, modified and
-written back out to a file or converted to a string.
-
-A Document has a tree structure consisting of I<Node> objects. A Node may contain
-other nodes, depending on its type.
-A Document may have Element, Text, Comment, and CDATASection nodes. 
-Element nodes may have Attr, Element, Text, Comment, and CDATASection nodes. 
-The other nodes may not have any child nodes. 
-
-This module adds several node types that are not part of the DOM spec (yet.)
-These are: ElementDecl (for <!ELEMENT ...> declarations), AttlistDecl (for
-<!ATTLIST ...> declarations), XMLDecl (for <?xml ...?> declarations) and AttDef
-(for attribute definitions in an AttlistDecl.)
-
-=head1 DOM API
-
-=over 4
+ ATTRIBUTE_NODE (2)              The node is an Attr.
  TEXT_NODE (3)                   The node is a Text node.
  CDATA_SECTION_NODE (4)          The node is a CDATASection.
  ENTITY_REFERENCE_NODE (5)       The node is an EntityReference.
@@ -4059,11 +4116,6 @@ to support the 4 added node classes.
 =head2 Global Variables
 
 =over 4
-
-=item @NodeNames
-
-The variable @XML::DOM::NodeNames maps the node type constants to strings.
-It is used by XML::DOM::Node::getNodeTypeName.
 
 =item $VERSION
 
@@ -4099,7 +4151,16 @@ It should be updated when Perl supports UTF-8 in regular expressions.
 
 =item XML::DOM::Node
 
+=head2 Global Variables
+
 =over 4
+
+=item @NodeNames
+
+The variable @XML::DOM::Node::NodeNames maps the node type constants to strings.
+It is used by XML::DOM::Node::getNodeTypeName.
+
+=head2 Methods
 
 =item getNodeType
 
@@ -4382,7 +4443,7 @@ getElementsByTagName. See L<CAVEATS>.
 
 Return the string describing the node type. 
 E.g. returns "ELEMENT_NODE" if getNodeType returns ELEMENT_NODE.
-It uses @XML::DOM::nodeNames.
+It uses @XML::DOM::Node::NodeNames.
 
 =item toString
 
@@ -4432,6 +4493,16 @@ Removes all circular references in this node and its descendants so the
 objects can be claimed for garbage collection. The objects should not be used
 afterwards.
 
+=item setOwnerDocument (doc)
+
+Sets the ownerDocument property of this node and all its children (and 
+attributes etc.) to the specified document.
+This allows the user to cut and paste document subtrees between different
+XML::DOM::Documents. The node should be removed from the original document
+first, before calling setOwnerDocument.
+
+This method does nothing when called on a Document node.
+
 =item isAncestor (parent)
 
 Returns 1 if parent is an ancestor of this node or if it is this node itself.
@@ -4444,6 +4515,157 @@ default entity references ("&quot;", "&gt;", "&lt;", "&apos;" and "&amp;") or
 entity references defined in Entity objects as part of the DocumentType of
 the owning Document. Character references are expanded into UTF-8.
 Parameter entity references (e.g. %ent;) are not expanded.
+
+=back
+
+=item Interface XML::DOM::NodeList
+
+The NodeList interface provides the abstraction of an ordered
+collection of nodes, without defining or constraining how this
+collection is implemented.
+
+The items in the NodeList are accessible via an integral index,
+starting from 0.
+
+Although the DOM spec states that all NodeLists are "live" in that they
+allways reflect changes to the DOM tree, the NodeList returned by
+getElementsByTagName is not live in this implementation. See L<CAVEATS>
+for details.
+
+=over 4
+
+=item getItem (index)
+
+Returns the indexth item in the collection. If index is
+greater than or equal to the number of nodes in the list,
+this returns undef.
+
+=item getLength
+
+The number of nodes in the list. The range of valid child
+node indices is 0 to length-1 inclusive.
+
+=head2 Additional methods not in the DOM Spec
+
+=item dispose
+
+Removes all circular references in this NodeList and its descendants so the 
+objects can be claimed for garbage collection. The objects should not be used
+afterwards.
+
+=back
+
+=item Interface XML::DOM::NamedNodeMap
+
+Objects implementing the NamedNodeMap interface are used to represent
+collections of nodes that can be accessed by name. Note that
+NamedNodeMap does not inherit from NodeList; NamedNodeMaps are not
+maintained in any particular order. Objects contained in an object
+implementing NamedNodeMap may also be accessed by an ordinal index, but
+this is simply to allow convenient enumeration of the contents of a
+NamedNodeMap, and does not imply that the DOM specifies an order to
+these Nodes.
+
+Note that in this implementation, the objects added to a NamedNodeMap
+are kept in order.
+
+=over 4
+
+=item getNamedItem (name)
+
+Retrieves a node specified by name.
+
+Return Value: A Node (of any type) with the specified name, or undef if
+the specified name did not identify any node in the map.
+
+=item setNamedItem (arg)
+
+Adds a node using its nodeName attribute.
+
+As the nodeName attribute is used to derive the name which
+the node must be stored under, multiple nodes of certain
+types (those that have a "special" string value) cannot be
+stored as the names would clash. This is seen as preferable
+to allowing nodes to be aliased.
+
+Parameters:
+ I<arg>  A node to store in a named node map. 
+
+The node will later be accessible using the value of the nodeName
+attribute of the node. If a node with that name is
+already present in the map, it is replaced by the new one.
+
+Return Value: If the new Node replaces an existing node with the same
+name the previously existing Node is returned, otherwise undef is returned.
+
+DOMExceptions:
+
+=over 4
+
+=item * WRONG_DOCUMENT_ERR
+
+Raised if arg was created from a different document than the one that 
+created the NamedNodeMap.
+
+=item * NO_MODIFICATION_ALLOWED_ERR
+
+Raised if this NamedNodeMap is readonly.
+
+=item * INUSE_ATTRIBUTE_ERR
+
+Raised if arg is an Attr that is already an attribute of another Element object.
+The DOM user must explicitly clone Attr nodes to re-use them in other elements.
+
+=back
+
+=item removeNamedItem (name)
+
+Removes a node specified by name. If the removed node is an
+Attr with a default value it is immediately replaced.
+
+Return Value: The node removed from the map or undef if no node with
+such a name exists.
+
+DOMException:
+
+=over 4
+
+=item * NOT_FOUND_ERR
+
+Raised if there is no node named name in the map.
+
+=back
+
+=item getItem (index)
+
+Returns the indexth item in the map. If index is greater than
+or equal to the number of nodes in the map, this returns undef.
+
+Return Value: The node at the indexth position in the NamedNodeMap, or
+undef if that is not a valid index.
+
+=item getLength
+
+Returns the number of nodes in the map. The range of valid child node
+indices is 0 to length-1 inclusive.
+
+=head2 Additional methods not in the DOM Spec
+
+=item getValues
+
+Returns a NodeList with the nodes contained in the NamedNodeMap.
+The NodeList is live, in that it reflects changes made to the NamedNodeMap.
+
+=item getChildIndex (node)
+
+Returns the index of the node in the NodeList as returned by getValues, or -1
+if the node is not in the NamedNodeMap.
+
+=item dispose
+
+Removes all circular references in this NamedNodeMap and its descendants so the 
+objects can be claimed for garbage collection. The objects should not be used
+afterwards.
 
 =back
 

@@ -1,5 +1,17 @@
 Change History:
 
+1.09 (enno)
+- Changed NamedNodeMap {Values} to a NodeList instead of []
+  This way getValues can return a (live) NodeList.
+- Added NodeList and NamedNodeMap to documentation
+- Fixed documentation section near list of node type constants. 
+  I accidentally pasted some text in between and messed up that whole section.
+  (Thanks to Andrew Fitzhugh at fitzhugh@cup.hp.com)
+- Added dispose to NodeList
+- Added setOwnerDocument to all Nodes, NodeList and NamedNodeMap, to allow 
+  cut and paste between XML::DOM::Documents. 
+  It does nothing when called on a Document node.
+
 1.08 (enno)
 - No changes - I messed up uploading to PAUS and had to up the version number.
 
