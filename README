@@ -7,9 +7,10 @@ under the same terms as Perl itself.
 
 The XML::DOM code is fairly stable and has been used quite a bit.
 
-However, there is a new DOM module, XML::LibXML which is under active
-development and signicantly faster than XML::DOM, since it is based on
-the libxml2 C library.
+However, there is a new DOM module, XML::GDOME which is under active
+development and significantly faster than XML::DOM, since it is based on
+the libgdome C library.  It provides Level 2 of the DOM Core API.  For
+more details see http://tjmather.com/xml-gdome/
 
 For bug reports or suggestions send email to tjmather@tjmather.com
 
@@ -48,9 +49,6 @@ Then to build you run make.
 You can then test the module by typing:
 
 	make test
-
-Note that dom_jp_attr.t, dom_jp_modify.t and dom_jp_print.t
-seem to fail under 5.6.1.  I think it is because of a Unicode bug in Perl.
 
 If you have write access to the perl library directories, you may then
 install by typing:

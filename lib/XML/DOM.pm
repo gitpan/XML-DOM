@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.30';
+    $VERSION = '1.35';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -3078,7 +3078,7 @@ sub to_expat
 sub _to_sax
 {
     my ($self, $doch, $dtdh, $enth) = @_;
-    $doch->Comment ( { Data => $self->getData });
+    $doch->comment ( { Data => $self->getData });
 }
 
 ######################################################################
@@ -5063,6 +5063,11 @@ The L<XML::Parser> and L<XML::Parser::Expat> manual pages.
 L<XML::LibXML> also provides a DOM Parser, and is significantly faster
 than XML::DOM, and is under active development.  It requires that you 
 download the Gnome libxml library.
+
+L<XML::GDOME> will provide the DOM Level 2 Core API, and should be
+as fast as XML::LibXML, but more robust, since it uses the memory
+management functions of libgdome.  For more details see
+http://tjmather.com/xml-gdome/
 
 =head1 CAVEATS
 
