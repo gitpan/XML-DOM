@@ -1,5 +1,9 @@
 Change History for XML-DOM:
 
+1.37 (tjmather) 02/15/2002
+- parameter should be last argument of DocumentType::addEntity
+  (Patrick Whittle)
+
 1.36 (tjmather) 01/04/2002
 - Replaced 'our' with 'my' in t/dom_text.t, to work with perl < 5.6.0
 

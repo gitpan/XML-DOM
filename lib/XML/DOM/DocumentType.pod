@@ -109,18 +109,18 @@ exist yet.
 Returns the AttlistDecl (new or existing) node. The model is ignored if one
 already existed.
 
-=item addEntity (parameter, notationName, value, sysId, pubId, ndata)
+=item addEntity (notationName, value, sysId, pubId, ndata, parameter)
 
 Adds a new Entity node. Don't use createEntity and appendChild, because it should
 be added to the internal NamedNodeMap containing the entities.
 
 Parameters:
- I<parameter>	 whether it is a parameter entity (%ent;) or not (&ent;).
  I<notationName> the entity name.
  I<value>        the entity value.
  I<sysId>        the system id (if any.)
  I<pubId>        the public id (if any.)
  I<ndata>        the NDATA declaration (if any, for general unparsed entities.)
+ I<parameter>	 whether it is a parameter entity (%ent;) or not (&ent;).
 
 SysId, pubId and ndata may be undefined.
 
