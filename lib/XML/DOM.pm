@@ -29,7 +29,7 @@ package XML::DOM;
 
 use strict;
 
-use bytes; # REMOVE ME if Perl < 5.6.0
+use bytes;
 
 use vars qw( $VERSION @ISA @EXPORT
 	     $IgnoreReadOnly $SafeMode $TagStyle
@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.35';
+    $VERSION = '1.36';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"

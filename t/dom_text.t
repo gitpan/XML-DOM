@@ -1,7 +1,7 @@
 use strict;
 use Test;
 
-our $loaded;
+my $loaded;
 BEGIN { $| = 1; plan tests => 5; }
 END   { ok(0) unless $loaded; }
 require XML::DOM;

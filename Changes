@@ -1,5 +1,8 @@
 Change History for XML-DOM:
 
+1.36 (tjmather) 01/04/2002
+- Replaced 'our' with 'my' in t/dom_text.t, to work with perl < 5.6.0
+
 1.35 (tjmather) 10/26/2001
 - Fixed bug with XML::DOM::Comment::_to_sax (Mark Pundsack)
 - Added test for XML::DOM::Text::splitText (Michael Guennewig)
@@ -18,7 +21,7 @@ Change History for XML-DOM:
 - Separated out XML::UM, XML::Filter::* and XML::Builder::* modules
 	into separate distributions (Idea of Matt Sergeant, as discussed
 	on perl-xml@listserver.activestate.com)
-- Removed dependecy on Parse::Yapp - shouldn't have been there in the first
+- Removed dependency on Parse::Yapp - shouldn't have been there in the first
 	place.
 
 1.31 (tjmather) 6/26/2001
