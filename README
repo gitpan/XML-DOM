@@ -25,6 +25,8 @@ You need the following modules (all available at CPAN):
 - XML::Parser (At least version 2.28, 2.30 recommended)
 	 If you are using XML::Parser 2.27, then you should download
 	libxml-enno-1.02 from your local CPAN mirror.
+	If you are using Perl 5.8.0 or greater, you must apply the
+	included XML-Parser-2.31.patch.
 - LWP::UserAgent (It's part of libwww-perl. If you don't have it, some test
 		  cases may fail and you can't read files from URLs.)
 - XML::Parser::PerlSAX (It's part of libxml-perl. You need at least version 0.06.

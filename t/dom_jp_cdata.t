@@ -3,6 +3,7 @@ END {print "not ok 1\n" unless $loaded;}
 use XML::DOM;
 use CheckAncestors;
 use CmpDOM;
+use utf8;
 $loaded = 1;
 print "ok 1\n";
 

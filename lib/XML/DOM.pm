@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.40';
+    $VERSION = '1.41';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -277,6 +277,8 @@ sub encodeText
 {
     my ($str, $default) = @_;
     return undef unless defined $str;
+
+    return $str if $] >= 5.006;
     
     $str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
 	defined($1) ? XmlUtf8Decode ($1) : 
@@ -1984,11 +1986,17 @@ sub new
 	else
 	{
 	    # strip off quotes - see Attlist handler in XML::Parser
-	    $default =~ m#^(["'])(.*)['"]$#;
-	    
-	    $self->[_Quote] = $1;	# keep track of the quote character
-	    $self->[_Default] = $self->setDefault ($2);
-	    
+            # this regexp doesn't work with 5.8.0 unicode
+#	    $default =~ m#^(["'])(.*)['"]$#;
+#	    $self->[_Quote] = $1;	# keep track of the quote character
+#	    $self->[_Default] = $self->setDefault ($2);
+
+          # workaround for 5.8.0 unicode
+          $default =~ s!^(["'])!!;
+          $self->[_Quote] = $1;
+          $default =~ s!(["'])$!!;
+          $self->[_Default] = $self->setDefault ($default);
+	    	    
 #?? should default value be decoded - what if it contains e.g. "&amp;"
 	}
     }
@@ -4440,13 +4448,13 @@ sub Default
     {
 #	if ($expat->{NoExpand})
 #	{
-	    $str =~ /^&(.+);$/os;
-	    return unless defined ($1);
 	    # Got a TextDecl (<?xml ...?>) from an external entity here once
 
 	    # create non-parameter entity reference, correct?
+            return unless $str =~ s!^&!!;
+            return unless $str =~ s!;$!!;
 	    $_DP_elem->appendChild (
-		   $_DP_doc->createEntityReference ($1,0,$expat->{NoExpand}));
+		   $_DP_doc->createEntityReference ($str,0,$expat->{NoExpand}));
 	    undef $_DP_last_text;
 #	}
 #	else
@@ -4888,7 +4896,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.40".
+implementation, e.g. "1.41".
 
 =back
 

@@ -1,5 +1,16 @@
 Change History for XML-DOM:
 
+1.41 (tjmather) 10/19/2002
+- included XML-Parser-2.31.patch, required for XML::Parser
+to work with 5.8.0 unicode
+- use utf8 in unicode test scripts, fixes 5.8.0 test failures
+NOTE - you should use the utf8 pragma in your programs if you
+are passing utf8 to XML::DOM.
+- only use encodeText for Perl < 5.6.0
+- replace match w/ substitution in AttDef::new, workaround for 5.8.0 unicode
+- replace match w/ substitution in Default handler for non-paramter
+entity reference, workaround for 5.8.0 unicode
+
 1.40 (tjmather) 10/13/2002
 - Fixed problem when defining user LWP object (Willems Luc)
 - Autodetect whether to 'use bytes' (Ed Avis)
