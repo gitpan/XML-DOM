@@ -50,7 +50,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.18';
+    $VERSION = '1.21';
 
     my $needVersion = '2.16';
     die "need at least XML::Parser version $needVersion"
@@ -1004,8 +1004,10 @@ sub getPreviousSibling
 
     my $pa = $self->{Parent};
     return undef unless $pa;
+    my $index = $pa->getChildIndex ($self);
+    return undef unless $index;
 
-    $pa->getChildAtIndex ($pa->getChildIndex ($self) - 1);
+    $pa->getChildAtIndex ($index - 1);
 }
 
 sub getNextSibling
@@ -3308,9 +3310,10 @@ sub removeChildHoodMemories
 {
     my ($self, $dontWipeReadOnly) = @_;
 
-    if ($self->{Parent}->getNodeType == DOCUMENT_NODE)
+    my $parent = $self->{Parent};
+    if (defined $parent && $parent->getNodeType == DOCUMENT_NODE)
     {
-	delete $self->{Parent}->{Doctype};
+	delete $parent->{Doctype};
     }
     $self->SUPER::removeChildHoodMemories;
 }
@@ -3930,7 +3933,8 @@ sub Final
     my $doc = $expat->{DOM_Document};
     unless ($expat->{DOM_sawDoctype})
     {
-	$doc->removeDoctype;
+	my $doctype = $doc->removeDoctype;
+	$doctype->dispose;
     }
 
     # Restore flags to previous values
@@ -4032,7 +4036,7 @@ if ($XML::Parser::VERSION < 2.20)
 	}
     };
     
-} else {	# $XML::Parser::VERSION >= 2.20
+} elsif ($XML::Parser::VERSION < 2.23) {	# 2.20, 2.21, 2.22
     
     *Start = sub
     {
@@ -4062,6 +4066,40 @@ if ($XML::Parser::VERSION < 2.20)
 	    $lastWasText = 0;
 	    my $attr = $doc->createAttribute ($name, $attr[$i++], 
 					      !$expat->is_defaulted ($name));
+	    $node->setAttributeNode ($attr);
+	}
+    }
+} else {	# $XML::Parser::VERSION >= 2.23
+    
+    *Start = sub
+    {
+	my ($expat, $elem, @attr) = @_;
+	my $parent = $expat->{DOM_Element};
+	my $doc = $expat->{DOM_Document};
+	
+	if ($parent == $doc)
+	{
+	    # End of document prolog, i.e. start of first Element
+	    $expat->{DOM_inProlog} = 0;
+	}
+	
+	$lastWasText = 0;
+	my $node = $doc->createElement ($elem);
+	$expat->{DOM_Element} = $node;
+	$parent->appendChild ($node);
+	
+	my $spec = $expat->{DOM_Spec};
+	delete $expat->{DOM_Spec};
+	
+	my $first_default = $expat->specified_attr;
+	my $i = 0;
+	my $n = @attr;
+	while ($i < $n)
+	{
+	    my $specified = $i < $first_default;
+	    my $name = $attr[$i++];
+	    $lastWasText = 0;
+	    my $attr = $doc->createAttribute ($name, $attr[$i++], $specified);
 	    $node->setAttributeNode ($attr);
 	}
     }

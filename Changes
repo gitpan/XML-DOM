@@ -1,5 +1,22 @@
 Change History:
 
+1.21 (enno) 4/27/1999
+- Fixed Start handler to work with new method specified_attr() in 
+  XML::Parser 2.23
+
+1.20 (enno) 4/16/1999
+- Fixed getPreviousSibling(). If the node was the first child, it would return
+  the last child of its parent instead of undef.
+  (Thanks to Christoph StueckJuergen <stueckjuergen@tanner.de>)
+
+1.19 (enno) 4/7/1999
+- Fixed memory leak: Final handler did not call dispose on a temporarily 
+  created DocumentType object that was no longer needed.
+  (Thanks to Loic Dachary <loic@ceic.com>)
+- Fixed DocumentType::removeChildhoodMemories (which is called by dispose)
+  to work correctly when the DocumentType node is already decoupled from
+  the document.
+
 1.18 (enno) 3/15/1999
 - Fixed typo "DOM::XML::XmlUtf8Encode" in expandEntityRefs() to
   XML::DOM::XmlUtf8Encode. 
