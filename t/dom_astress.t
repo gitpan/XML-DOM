@@ -66,6 +66,7 @@ my $doc;
 eval {
     $doc = $parser->parsefile (filename ('samples/REC-xml-19980210.xml'));
 };
+print $@;
 assert_ok (not $@);
 
 my $doc2 = $doc->cloneNode (1);

@@ -1,27 +1,34 @@
-			Perl module: XML::DOM
+			Perl module: XML-DOM
 
-Copyright (c) 1998 Enno Derksen and Clark Cooper.
+Copyright (c) 1999,2000 Enno Derksen
 All rights reserved.
 This program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself. 
 
-This is a Perl extension to XML::Parser. It adds a new 'Style' to XML::Parser,
-called 'Dom', that allows XML::Parser to build an Object Oriented datastructure 
-with a DOM Level 1 compliant interface.
-For a description of the DOM (Document Object Model), see http://www.w3.org/DOM/
+The XML::DOM code is fairly stable and has been used quite a bit.
 
-XML::Parser is a Perl extension interface to James Clark's XML parser, expat.
-It requires at least version 5.004 of perl and can be found on CPAN.
+For bug reports or suggestions send email to tjmather@tjmather.com
 
-The documentation for the XML::DOM extension can be found in pod format at 
-the end of the file DOM.pm.
+========= DEPENDENCIES =========================================================
 
-This is a beta version and although there will not be any major API changes,
-minor changes may occur as we get feedback
-from the people on the perl-xml mailing list. [You can subscribe to
-this list by sending a message to subscribe-perl-xml@lyris.activestate.com.]
+You need the following modules (all available at CPAN):
 
-For bug reports or suggestions send email to enno@att.com (NOT to Clark Cooper!)
+- XML::RegExp
+- XML::Parser (At least version 2.28, 2.30 recommended)
+	 If you are using XML::Parser 2.27, then you should download
+	libxml-enno-1.02 from your local CPAN mirror.
+- Parse::Yapp (Used by XML::XQL. I'm using 0.16)
+- Date::Manip (Used by XML::XQL::Date. 
+	       I'm using 5.33. I know 5.20 or less doesn't work)
+- LWP::UserAgent (It's part of libwww-perl. If you don't have it, some test
+		  cases may fail and you can't read files from URLs.)
+- XML::Parser::PerlSAX (It's part of libxml-perl. You need at least version 0.06.
+			If you don't have it some test cases may fail.)
+
+I used PodToHTML-0.04 to generate the html documentation. You only need this
+if you want to re-generate it.
+
+========= INSTALLATION =========================================================
 
 To configure this module, cd to the directory that contains this README file
 and type the following.
@@ -41,10 +48,42 @@ You can then test the module by typing:
 
 	make test
 
+See FAQ.xml for known problems.
+
 If you have write access to the perl library directories, you may then
 install by typing:
 
 	make install
 
-Enno Derksen
-enno@att.com
+============= XML::DOM =========================================================
+
+This is a Perl extension to XML::Parser. It adds a new 'Style' to XML::Parser,
+called 'Dom', that allows XML::Parser to build an Object Oriented datastructure 
+with a DOM Level 1 compliant interface.
+For a description of the DOM (Document Object Model), see http://www.w3.org/DOM/
+
+XML::Parser is a Perl extension interface to James Clark's XML parser, expat.
+It requires at least version 5.004 of perl and can be found on CPAN.
+
+This is a beta version and although there will not be any major API changes,
+minor changes may occur as we get feedback
+from the people on the perl-xml mailing list. [You can subscribe to
+this list by sending a message to subscribe-perl-xml@lyris.activestate.com.]
+
+============= Other packages ===================================================
+XML::UM		      - Convert UTF-8 strings to any encoding supported 
+			by XML::Encoding
+
+XML::Filter::SAXT     - Replicates SAX events to several SAX event handlers 
+		        (like the Unix 'tee' command)
+XML::Filter::DetectWS - PerlSAX filter that detects ignorable whitespace and, 
+			optionally, filters it. (Untested!) 
+XML::Filter::Reindent - PerlSAX filter that can re-indent XML files.
+
+XML::Handler::BuildDOM - Previously called XML::DOM::PerlSAX. Builds a DOM
+			document from PerlSAX events.
+XML::Handler::Composer - Yet another XML printer. This one supports printing 
+			to other encodings.
+XML::Handler::PrintEvents - Prints all PerlSAX events it receives to stdout. 
+			Useful when debugging PerlSAX event filters/producers. 
+--------------------------------------------------------------------------------

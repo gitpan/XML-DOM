@@ -10,7 +10,7 @@ my $str = <<END;
 <?xml version="1.0" standalone="yes"?>
 <!DOCTYPE doc [
  <!ENTITY huh "Uh huh huh huh mmh huh">
- <!ELEMENT doc (beavis | butthead)*>
+ <!ELEMENT doc (beavis|butthead)*>
  <!ELEMENT beavis (#PCDATA)>
  <!ELEMENT butthead (#PCDATA)>
 ]>

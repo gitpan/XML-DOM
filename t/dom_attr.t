@@ -23,7 +23,7 @@ my $str = <<END;
  <!ELEMENT person (#PCDATA)>
  <!ATTLIST person
   name CDATA #REQUIRED
-  hair (none | blue | yellow) "yellow"
+  hair (none|blue|yellow) 'yellow'
   sex CDATA #REQUIRED>
 ]>
 <simpsons>
@@ -97,17 +97,21 @@ assert_ok ($hair->getValue eq "pointy");
 
 my $doc2 = $doc->cloneNode(1);
 my $cmp = new CmpDOM;
+
+# (tjmather) there were problems here until I patched
+# XML::Parser::Dom::Element to convert Model arg to string
+# from XML::Parser::ContentModel
 unless (assert_ok ($doc->equals ($doc2, $cmp)))
 {
     # This shouldn't happen
     print "Context: ", $cmp->context, "\n";
 }
-
 assert_ok ($hair->getNodeTypeName eq "ATTRIBUTE_NODE");
 
 $bart->removeAttribute ("hair");
 
 # check if hair is still defaulted
 $hair2 = $battr->getNamedItem ("hair");
+
 assert_ok ($hair2->getValue eq "yellow");
 assert_ok (not $hair2->isSpecified);
