@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.39';
+    $VERSION = '1.40';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -1329,7 +1329,7 @@ sub getValue
 
     for my $kid (@{$self->[_C]})
     {
-	$value .= $kid->getData;
+	$value .= $kid->getData if defined $kid->getData;
     }
     $value;
 }
@@ -4271,7 +4271,7 @@ sub parsefile
 		$ua = $LWP_USER_AGENT;
 	    }
 	    my $req = new HTTP::Request 'GET', $url;
-	    my $response = $LWP_USER_AGENT->request ($req);
+	    my $response = $ua->request ($req);
 
 	    # Parse the result of the HTTP request
 	    $result = $self->parse ($response->content, @_);
@@ -4888,7 +4888,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.39".
+implementation, e.g. "1.40".
 
 =back
 

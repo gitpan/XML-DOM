@@ -1,3 +1,4 @@
+BUGS
 Changes
 CheckAncestors.pm		Used by test cases in t/
 CmpDOM.pm			Used by test cases in t/
@@ -34,10 +35,12 @@ lib/XML/DOM/Text.pod
 lib/XML/DOM/XMLDecl.pod
 lib/XML/Handler/BuildDOM.pm
 samples/REC-xml-19980210.xml	Sample XML files
+samples/minutes.xml
 t/build_dom.t
 t/dom_astress.t			dom_*.t are test cases for XML::DOM
 t/dom_attr.t
 t/dom_cdata.t
+t/dom_documenttype.t
 t/dom_example.t
 t/dom_extent.dtd
 t/dom_extent.ent
@@ -51,5 +54,8 @@ t/dom_jp_modify.t
 t/dom_jp_print.t
 t/dom_minus.t
 t/dom_modify.t
+t/dom_noexpand.t
 t/dom_print.t
 t/dom_template.t
+t/dom_text.t
+

@@ -8,6 +8,7 @@ XML::DOM::Parser - An XML::Parser that builds XML::DOM document structures
 
  my $parser = new XML::DOM::Parser;
  my $doc = $parser->parsefile ("file.xml");
+ $doc->dispose; # Avoid memory leaks - cleanup circular references
 
 =head1 DESCRIPTION
 

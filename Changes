@@ -1,5 +1,11 @@
 Change History for XML-DOM:
 
+1.40 (tjmather) 10/13/2002
+- Fixed problem when defining user LWP object (Willems Luc)
+- Autodetect whether to 'use bytes' (Ed Avis)
+- Added dispose method to XML::DOM::Parser Synopsis (Ruben Diez)
+- Fixed warning message in Attr.getValue method (Christian Lizell)
+
 1.39 (tjmather) 04/16/2002
 - Deletes value if both System ID and value are defined
   (Brian Thomas)

@@ -1,2 +1,6 @@
+UTF-8 doesn't work with XML::DOM on Perl 5.8.0 patches welcome!
+See for a discussion of this issue at:
+http://aspn.activestate.com/ASPN/Mail/Message/perl-xml/1380541
+
 There have been reports of XML::DOM core dumping when
 the 'use diagnostics' pragma is set.  Patches welcome!
