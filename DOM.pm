@@ -47,7 +47,7 @@ package XML::DOM;
 
 use strict;
 use vars qw( $VERSION @ISA @EXPORT
-	     $IgnoreReadOnly $SafeMode
+	     $IgnoreReadOnly $SafeMode $TagStyle
 	     %DefaultEntities %DecodeDefaultEntity
 	     $ChBaseChar $ChIdeographic
 	     $ChLetter $ChDigit $ChExtender $ChCombiningChar $ChNameChar $ReName
@@ -57,7 +57,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.22';
+    $VERSION = '1.23';
 
     my $needVersion = '2.23';
     die "need at least XML::Parser version $needVersion"
@@ -348,6 +348,15 @@ sub allowReservedNames
 sub getAllowReservedNames
 {
     *isValidName == \&forgiving_isValidName;
+}
+
+# Always compress empty tags by default
+# This is used by Element::print.
+$TagStyle = sub { 0 };
+
+sub setTagCompression
+{
+    $TagStyle = shift;
 }
 
 ######################################################################
@@ -2766,7 +2775,19 @@ sub print
     }
     else
     {
-	$FILE->print ("/>");
+	my $style = &$XML::DOM::TagStyle ($name, $self);
+	if ($style == 0)
+	{
+	    $FILE->print ("/>");
+	}
+	elsif ($style == 1)
+	{
+	    $FILE->print ("></$name>");
+	}
+	else
+	{
+	    $FILE->print (" />");
+	}
     }
 }
 
@@ -4345,6 +4366,53 @@ XML spec.
 
 XML::DOM only checks for errors when you modify the DOM tree, not when the
 DOM tree is built by the XML::DOM::Parser.
+
+=item setTagCompression (funcref)
+
+There are 3 possible styles for printing empty Element tags:
+
+=over 4
+
+=item Style 0
+
+ <empty/> or <empty attr="val"/>
+
+XML::DOM uses this style by default for all Elements.
+
+=item Style 1
+
+  <empty></empty> or <empty attr="val"></empty>
+
+=item Style 2
+
+  <empty /> or <empty attr="val" />
+
+This style is sometimes desired when using XHTML. 
+(Note the extra space before the slash "/")
+See http://www.w3.org/TR/WD-html-in-xml Appendix C for more details.
+
+=back
+
+By default XML::DOM compresses all empty Element tags (style 0.)
+You can control which style is used for a particular Element by calling
+XML::DOM::setTagCompression with a reference to a function that takes
+2 arguments. The first is the tag name of the Element, the second is the
+XML::DOM::Element that is being printed. 
+The function should return 0, 1 or 2 to indicate which style should be used to
+print the empty tag. E.g.
+
+ XML::DOM::setTagCompression (\&my_tag_compression);
+
+ sub my_tag_compression
+ {
+    my ($tag, $elem) = @_;
+
+    # Print empty br, hr and img tags like this: <br />
+    return 2 if $tag =~ /^(br|hr|img)$/;
+
+    # Print other empty tags like this: <empty></empty>
+    return 1;
+ }
 
 =back
 
@@ -5954,6 +6022,7 @@ These routines should be verified by someone who knows the details.
 
 When Perl supports UTF-8 in regular expressions, we should update the
 XML::DOM::isValidName method to allow non-ASCII characters.
+See the XML::DOM::UTF8 module when using perl 5.005_55 and over.
 
 =item * Quotes
 
@@ -5992,9 +6061,14 @@ The XML::Parser and XML::Parser::Expat manual pages.
 
 The method getElementsByTagName() does not return a "live" NodeList.
 Whether this is an actual caveat is debatable, but a few people on the 
-xml-dom mailing list seemed to think so. I haven't decided yet. It's a pain
+www-dom mailing list seemed to think so. I haven't decided yet. It's a pain
 to implement, it slows things down and the benefits seem marginal.
-Let me know what you think.
+Let me know what you think. 
+
+(To subscribe to the www-dom mailing list send an email with the subject 
+"subscribe" to www-dom-request@w3.org. I only look here occasionally, so don't
+send bug reports or suggestions about XML::DOM to this list, send them
+to enno@att.com instead.)
 
 =head1 AUTHORS
 

@@ -1,5 +1,11 @@
 Change History:
 
+1.23 (enno) 6/4/1999
+- Added XML::DOM::setTagCompression to give you control over how empty
+  element tags are printed. See XML::DOM documentation for details.
+- Fixed CAVEAT section in XML::DOM documentation to refer to the www-dom
+  mailing list (as opposed to xml-dom.)
+
 1.22 (enno) 5/28/1999
 - The XML::DOM documentation was translated into Japanese by Takanori Kawai 
   (aka Hippo2000) at http://member.nifty.ne.jp/hippo2000/perltips/xml/dom.htm
