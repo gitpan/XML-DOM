@@ -54,7 +54,7 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.11';
+    $VERSION = '1.15';
 
     my $needVersion = '2.16';
     die "need at least XML::Parser version $needVersion"
@@ -475,7 +475,6 @@ sub setNamedItem
     {
 	# decouple previous node
 	delete $prev->{UsedIn};
-	$prev->setReadOnly (0);
 
 	# find index of $prev
 	$index = 0;
@@ -488,9 +487,6 @@ sub setNamedItem
 
     $self->{$name} = $node;    
     $node->{UsedIn} = $self;
-
-    my $readOnly = $prop->{ReadOnly};
-    $node->setReadOnly ($readOnly);
 
     if ($index == -1)
     {
@@ -522,7 +518,6 @@ sub removeNamedItem
 	if $self->isReadOnly;
 
     delete $node->{UsedIn};
-    $node->setReadOnly (0);
     delete $self->{$name};
 
     # remove node from Values list
@@ -558,30 +553,12 @@ sub getLength
 #------------------------------------------------------------
 # Extra method implementations
 
-sub setReadOnly
-{
-    my ($self, $readOnly) = @_;
-
-    if ($readOnly)
-    {
-	$self->{$Special}->{ReadOnly} = 1;
-    }
-    else
-    {
-	delete $_[0]->{$Special}->{ReadOnly};
-    }
-
-    for my $kid (@{$self->getValues})
-    {
-	$kid->setReadOnly ($readOnly);
-    }
-}
-
 sub isReadOnly
 {
     return 0 if $XML::DOM::IgnoreReadOnly;
 
-    $_[0]->{$Special}->{ReadOnly};
+    my $used = $_[0]->{$Special}->{UsedIn};
+    defined $used ? $used->isReadOnly : 0;
 }
 
 sub cloneNode
@@ -591,7 +568,6 @@ sub cloneNode
 
     my $map = new XML::DOM::NamedNodeMap (Doc => $prop->{Doc});
     # Not copying Parent property on purpose! 
-    # ReadOnly property should be set by creator!
 
     my $oldIgnore = XML::DOM::ignoreReadOnly (1);	# temporarily...
 
@@ -710,6 +686,11 @@ sub toString
 ######################################################################
 package XML::DOM::NodeList;
 ######################################################################
+
+use vars qw ( $EMPTY );
+
+# Empty NodeList
+$EMPTY = new XML::DOM::NodeList;
 
 sub new 
 {
@@ -858,42 +839,63 @@ sub appendChild
 	    if $self->isReadOnly;
     }
 
-    my @nodes = $node->isDocumentFragmentNode ? @{$node->{C}} : ($node);
-
+    my $isFrag = $node->isDocumentFragmentNode;
     my $doc = $self->{Doc};
 
-    if ($XML::DOM::SafeMode)
+    if ($isFrag)
     {
-	for my $n (@nodes)
+	if ($XML::DOM::SafeMode)
+	{
+	    for my $n (@{$node->{C}})
+	    {
+		croak new XML::DOM::DOMException (WRONG_DOCUMENT_ERR,
+						  "nodes belong to different documents")
+		if $doc != $n->{Doc};
+		
+		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+						  "node is ancestor of parent node")
+		if $n->isAncestor ($self);
+		
+		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+						  "bad node type")
+		if $self->rejectChild ($n);
+	    }
+	}
+
+	my @list = @{$node->{C}};	# don't try to compress this
+	for my $n (@list)
+	{
+	    $n->setParentNode ($self);
+	}
+	push @{$self->{C}}, @list;
+    }
+    else
+    {
+	if ($XML::DOM::SafeMode)
 	{
 	    croak new XML::DOM::DOMException (WRONG_DOCUMENT_ERR,
-					  "nodes belong to different documents")
-		if $doc != $n->{Doc};
-	
-	    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
-					   "node is ancestor of parent node")
-		if $n->isAncestor ($self);
-
-	    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
-					  "bad node type")
-		if $self->rejectChild ($n);
+						  "nodes belong to different documents")
+		if $doc != $node->{Doc};
+		
+		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+						  "node is ancestor of parent node")
+		if $node->isAncestor ($self);
+		
+		croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+						  "bad node type")
+		if $self->rejectChild ($node);
 	}
+	$node->setParentNode ($self);
+	push @{$self->{C}}, $node;
     }
-
-    for my $n (@nodes)
-    {
-	$n->setParentNode ($self);
-    }
-
-    push @{$self->{C}}, @nodes;
     $node;
 }
 
 sub getChildNodes
 {
     # NOTE: if node can't have children, $self->{C} is undef.
-#?? maybe this should work differently
-    $_[0]->{C};
+    my $kids = $_[0]->{C};
+    defined ($kids) ? $kids : $XML::DOM::NodeList::EMPTY;
 }
 
 sub hasChildNodes
@@ -910,12 +912,14 @@ sub getOwnerDocument
 
 sub getFirstChild
 {
-    ${$_[0]->{C}}[0];
+    my $kids = $_[0]->{C};
+    defined $kids ? $kids->[0] : undef; 
 }
 
 sub getLastChild
 {
-    ${$_[0]->{C}}[-1];
+    my $kids = $_[0]->{C};
+    defined $kids ? $kids->[-1] : undef; 
 }
 
 sub getPreviousSibling
@@ -987,6 +991,16 @@ sub replaceChild
 {
     my ($self, $node, $refNode) = @_;
 
+    croak new XML::DOM::DOMException (HIERARCHY_REQUEST_ERR,
+				      "bad node type")
+	if $self->rejectChild ($node) and not 
+	  ($self == $self->{Doc} && $node->getNodeType == ELEMENT_NODE &&
+	   $refNode == $self->getDocumentElement);
+    # NOTE: Special case. rejectChild() does not allow $node to be an Element
+    # node for a Document, when it already has a documentElement.
+    # (To prevent two Element nodes from being added to a Document.)
+    # But, since we're replacing here, it should be OK...
+
     croak new XML::DOM::DOMException (NO_MODIFICATION_ALLOWED_ERR,
 				      "node is ReadOnly")
 	if $self->isReadOnly;
@@ -1035,6 +1049,8 @@ sub normalize
 {
     my ($self) = shift;
     my $prev = undef;	# previous Text node
+
+    return unless defined $self->{C};
 
     my @nodes = @{$self->{C}};
     my $i = 0;
@@ -1096,6 +1112,8 @@ sub getElementsByTagName
     my ($self, $tagName, $list) = @_;
     $list ||= new XML::DOM::NodeList;
 
+    return unless defined $self->{C};
+
     # preorder traversal: check children first
     for my $kid (@{$self->{C}})
     {
@@ -1136,6 +1154,8 @@ sub setOwnerDocument
     my ($self, $doc) = @_;
     $self->{Doc} = $doc;
 
+    return unless defined $self->{C};
+
     for my $kid (@{$self->{C}})
     {
 	$kid->setOwnerDocument ($doc);
@@ -1147,13 +1167,15 @@ sub cloneChildren
     my ($self, $node, $deep) = @_;
     return unless $deep;
     
+    return unless defined $self->{C};
+
     my $oldIgnore = XML::DOM::ignoreReadOnly (1);	# temporarily...
 
     for my $kid (@{$node->{C}})
     {
 	my $newNode = $kid->cloneNode ($deep);
 	push @{$self->{C}}, $newNode;
-	$newNode->setParentNode ($self);	# also sets ReadOnly
+	$newNode->setParentNode ($self);
     }
 
     XML::DOM::ignoreReadOnly ($oldIgnore);	# restore previous value
@@ -1162,10 +1184,10 @@ sub cloneChildren
 # For internal use only!
 sub removeChildHoodMemories
 {
-    my ($self, $dontWipeReadOnly) = @_;
+    my ($self) = @_;
 
+#????? remove?
     delete $self->{Parent};
-    $self->setReadOnly (0) unless $dontWipeReadOnly;
 }
 
 # Remove circular dependencies. The Node and its children should
@@ -1174,7 +1196,7 @@ sub dispose
 {
     my $self = shift;
 
-    $self->removeChildHoodMemories (1);		# don't wipe ReadOnly attributes
+    $self->removeChildHoodMemories;
 
     if (defined $self->{C})
     {
@@ -1197,50 +1219,18 @@ sub setParentNode
 	my $index = $oldParent->getChildIndex ($self);
 	splice (@{$oldParent->{C}}, $index, 1, ());
 
-	$self->removeChildHoodMemories (1);  # 1: don't wipe ReadOnly attribute
+	$self->removeChildHoodMemories;
     }
     $self->{Parent} = $parent;
-    $self->setReadOnly ($parent->{ReadOnly});
 }
 
-# Sets or removes the ReadOnly attribute of the node and its descendants,
-# unless the node isAlwaysReadOnly, in which case nothing happens.
-# For internal use only!
-sub setReadOnly
-{
-    my ($self, $readOnly) = @_;
-    
-    # If a node is always readOnly (e.g. DocumentType), this is already set to 1,
-    # so we don't have to do anything here.
-    return if $self->isAlwaysReadOnly;
-
-    if ($readOnly)
-    {
-	$self->{ReadOnly} = 1;
-    }
-    else
-    {
-	delete $self->{ReadOnly};
-    }
-
-    for my $kid (@{$self->{C}})
-    {
-	$kid->setReadOnly ($readOnly);
-    }
-}
-
-# Returns 1 for Entity, EntityReference, Notation, DocumentType and
-# all their children.
-# Always returns 0 if ignoreReadOnly is set.
-sub isReadOnly
-{
-    return 0 if $XML::DOM::IgnoreReadOnly;
-
-    $_[0]->{ReadOnly};
-}
-
-# Certain node types override this to return 1: DocumentType, Notation, Entity,
-# EntityReference, Attlist, ElementDecl, AttDef. 
+# This function can return 3 values:
+# 1: always readOnly
+# 0: never readOnly
+# undef: depends on parent node 
+#
+# Returns 1 for DocumentType, Notation, Entity, EntityReference, Attlist, 
+# ElementDecl, AttDef. 
 # The first 4 are readOnly according to the DOM Spec, the others are always 
 # children of DocumentType. (Naturally, children of a readOnly node have to be
 # readOnly as well...)
@@ -1248,9 +1238,16 @@ sub isReadOnly
 # Other nodes, e.g. Comment, are readOnly only if their parent is readOnly,
 # which basically means that one of its ancestors has to be one of the
 # aforementioned node types.
-sub isAlwaysReadOnly
+# Document and DocumentFragment return 0 for obvious reasons.
+# Attr, Element, CDATASection, Text return 0. The DOM spec says that they can 
+# be children of an Entity, but I don't think that that's possible
+# with the current XML::Parser.
+# Attr uses a {ReadOnly} property, which is only set if it's part of a AttDef.
+# Always returns 0 if ignoreReadOnly is set.
+sub isReadOnly
 {
-    0;
+    # default implementation for Nodes that are always readOnly
+    ! $XML::DOM::IgnoreReadOnly;
 }
 
 sub rejectChild
@@ -1280,7 +1277,8 @@ sub getChildIndex
 
 sub getChildAtIndex
 {
-    ${$_[0]->{C}}[$_[1]];
+    my $kids = $_[0]->{C};
+    defined ($kids) ? $kids->[$_[1]] : undef;
 }
 
 sub isAncestor
@@ -1319,19 +1317,40 @@ sub isElementNode
 # previous Node if it is a Text node.
 sub addText
 {
-    # REC 9456
+    # REC 9456 (if it was called)
     my ($self, $str) = @_;
 
     my $node = ${$self->{C}}[-1];	# $self->getLastChild
 
     if (defined ($node) && $node->isTextNode)
     {
-	# REC 5475
+	# REC 5475 (if it was called)
 	$node->appendData ($str);
     }
     else
     {
 	$node = $self->{Doc}->createTextNode ($str);
+	$self->appendChild ($node);
+    }
+    $node;
+}
+
+# Add a CDATASection node with the specified value or append the text to the
+# previous Node if it is a CDATASection node.
+sub addCDATA
+{
+    my ($self, $str) = @_;
+
+    my $node = ${$self->{C}}[-1];	# $self->getLastChild
+
+    if (defined ($node) && $node->getNodeType == CDATA_SECTION_NODE)
+    {
+	# REC 5475
+	$node->appendData ($str);
+    }
+    else
+    {
+	$node = $self->{Doc}->createCDATASection ($str);
 	$self->appendChild ($node);
     }
     $node;
@@ -1344,9 +1363,10 @@ sub removeChildNodes
     my $cref = $self->{C};
     return unless defined $cref;
 
-    while (pop @{$cref})
+    my $kid;
+    while ($kid = pop @{$cref})
     {
-	delete $_->{Parent};
+	delete $kid->{Parent};
     }
 }
 
@@ -1497,13 +1517,35 @@ sub setNodeValue
     $_[0]->setValue ($_[1]);
 }
 
+sub cloneNode
+{
+    my ($self) = @_;	# parameter deep is ignored
+
+    my $node = $self->{Doc}->createAttribute ($self->getName);
+    $node->{Specified} = $self->{Specified};
+    $node->{ReadOnly} = 1 if $self->{ReadOnly};
+
+    $node->cloneChildren ($self, 1);
+    $node;
+}
+
+#------------------------------------------------------------
+# Extra method implementations
+#
+
+sub isReadOnly
+{
+    # ReadOnly property is set if it's part of a AttDef
+    ! $XML::DOM::IgnoreReadOnly && defined ($_[0]->{ReadOnly});
+}
+
 sub print
 {
     my ($self, $FILE) = @_;    
 
     my $name = $self->{Name};
 
-    $FILE->print (" $name=\"");
+    $FILE->print ("$name=\"");
     for my $kid (@{$self->{C}})
     {
 	if ($kid->getNodeType == TEXT_NODE)
@@ -1517,21 +1559,6 @@ sub print
     }
     $FILE->print ("\"");
 }
-
-sub cloneNode
-{
-    my ($self) = @_;	# parameter deep is ignored
-
-    my $node = $self->{Doc}->createAttribute ($self->getName);
-    $node->{Specified} = $self->{Specified};
-
-    $node->cloneChildren ($self, 1);
-    $node;
-}
-
-#------------------------------------------------------------
-# Extra method implementations
-#
 
 sub rejectChild
 {
@@ -1609,6 +1636,24 @@ sub setNodeValue
     $_[0]->setData ($_[1]);
 }
 
+sub cloneNode
+{
+    my $self = shift;
+    $self->{Doc}->createProcessingInstruction ($self->getTarget, 
+					       $self->getData);
+}
+
+#------------------------------------------------------------
+# Extra method implementations
+
+sub isReadOnly
+{
+    return 0 if $XML::DOM::IgnoreReadOnly;
+
+    my $pa = $_[0]->{Parent};
+    defined ($pa) ? $pa->isReadOnly : 0;
+}
+
 sub print
 {
     my ($self, $FILE) = @_;    
@@ -1618,13 +1663,6 @@ sub print
     $FILE->print (" ");
     $FILE->print (XML::DOM::encodeProcessingInstruction ($self->{Data}));
     $FILE->print ("?>");
-}
-
-sub cloneNode
-{
-    my $self = shift;
-    $self->{Doc}->createProcessingInstruction ($self->getTarget, 
-					       $self->getData);
 }
 
 ######################################################################
@@ -1650,7 +1688,6 @@ sub new
 	unless XML::DOM::isValidName ($name);
 
     bless {Doc		=> $doc,
-	   ReadOnly	=> 1,
 	   Name		=> $name,
 	   Base		=> $base,
 	   SysId	=> $sysId,
@@ -1730,14 +1767,6 @@ sub cloneNode
 				  $self->{SysId}, $self->{PubId});
 }
 
-#------------------------------------------------------------
-# Extra method implementations
-#
-
-sub isAlwaysReadOnly
-{
-    1;
-}
 
 ######################################################################
 package XML::DOM::Entity;
@@ -1762,7 +1791,6 @@ sub new
 	unless XML::DOM::isValidName ($notationName);
 
     bless {Doc		=> $doc,
-	   ReadOnly	=> 1,
 	   NotationName	=> $notationName,
 	   Parameter	=> $par,
 	   Value	=> $value,
@@ -1809,14 +1837,6 @@ sub cloneNode
 				$self->{NotationName}, $self->{Value}, 
 				$self->{SysId}, $self->{PubId}, 
 				$self->{Ndata});
-}
-
-#------------------------------------------------------------
-# Extra method implementations
-
-sub isAlwaysReadOnly
-{
-    1;
 }
 
 sub rejectChild
@@ -1907,7 +1927,6 @@ sub new
 	unless XML::DOM::isValidName ($name);
 
     bless {Doc		=> $doc,
-	   ReadOnly	=> 1,
 	   EntityName	=> $name,
 	   Parameter	=> ($parameter || 0)}, $class;
 }
@@ -1924,11 +1943,6 @@ sub getNodeName
 
 #------------------------------------------------------------
 # Extra method implementations
-
-sub isAlwaysReadOnly
-{
-    1;
-}
 
 sub getEntityName
 {
@@ -2023,7 +2037,6 @@ sub new
 
     my $self = bless {Doc	=> $doc,
 		      Name	=> $name,
-		      ReadOnly	=> 1,
 		      Type	=> $attrType}, $class;
 
     if (defined $default)
@@ -2050,11 +2063,6 @@ sub new
     $self->{Fixed} = $fixed if defined $fixed;
 
     $self;
-}
-
-sub isAlwaysReadOnly
-{
-    1;
 }
 
 sub getNodeType
@@ -2084,7 +2092,7 @@ sub setDefault
 
     # specified=0, it's the default !
     my $attr = $self->{Doc}->createAttribute ($self->{Name}, undef, 0);
-    $attr->setReadOnly (1);
+    $attr->{ReadOnly} = 1;
 
 #?? this should be split over Text and EntityReference nodes, just like other
 # Attr nodes - just expand the text for now
@@ -2177,7 +2185,6 @@ sub cloneNode
     if (defined $self->{Default})
     {
 	$node->{Default} = $self->{Default}->cloneNode(1);
-	$node->{Default}->setReadOnly (1);
     }
     $node->{Quote} = $self->{Quote};
 
@@ -2231,11 +2238,6 @@ sub new
 					     Parent	=> $self);
 
     $self;
-}
-
-sub isAlwaysReadOnly
-{
-    1;
 }
 
 sub getNodeType
@@ -2292,7 +2294,6 @@ sub cloneNode
     my $node = $self->{Doc}->createAttlistDecl ($self->{Name});
     
     $node->{A} = $self->{A}->cloneNode ($deep);
-    $node->{A}->setReadOnly (1);
     $node;
 }
 
@@ -2362,11 +2363,6 @@ sub new
 	   Name		=> $name,
 	   ReadOnly	=> 1,
 	   Model	=> $model}, $class;
-}
-
-sub isAlwaysReadOnly
-{
-    1;
 }
 
 sub getNodeType
@@ -2567,7 +2563,7 @@ sub removeAttributeNode
 sub removeAttribute
 {
     my ($self, $name) = @_;
-    my $node = $self->getNamedItem ($name);
+    my $node = $self->{A}->getNamedItem ($name);
 
 #?? could use dispose() to remove circular references for gc, but what if
 #?? somebody is referencing it?
@@ -2594,6 +2590,11 @@ sub getAttributes
 
 #------------------------------------------------------------
 # Extra method implementations
+
+sub isReadOnly
+{
+    0;
+}
 
 # Added for optimization.
 sub isElementNode
@@ -2646,7 +2647,11 @@ sub print
     for my $att (@{$self->{A}->getValues})
     {
 	# skip un-specified (default) Attr nodes
-	$att->print ($FILE) if $att->isSpecified;
+	if ($att->isSpecified)
+	{
+	    $FILE->print (" ");
+	    $att->print ($FILE);
+	}
     }
 
     my @kids = @{$self->{C}};
@@ -2837,10 +2842,15 @@ sub cloneNode
 #------------------------------------------------------------
 # Extra method implementations
 
+sub isReadOnly
+{
+    0;
+}
+
 sub print
 {
     my ($self, $FILE) = @_;
-    $FILE->print ("<!CDATA[");
+    $FILE->print ("<![CDATA[");
     $FILE->print (XML::DOM::encodeCDATA ($self->getData));
     $FILE->print ("]]>");
 }
@@ -2886,6 +2896,14 @@ sub cloneNode
 
 #------------------------------------------------------------
 # Extra method implementations
+
+sub isReadOnly
+{
+    return 0 if $XML::DOM::IgnoreReadOnly;
+
+    my $pa = $_[0]->{Parent};
+    defined ($pa) ? $pa->isReadOnly : 0;
+}
 
 sub print
 {
@@ -2959,6 +2977,11 @@ sub cloneNode
 
 #------------------------------------------------------------
 # Extra method implementations
+
+sub isReadOnly
+{
+    0;
+}
 
 sub print
 {
@@ -3158,10 +3181,8 @@ sub cloneNode
 
     # clone the NamedNodeMaps
     $node->{Entities} = $self->{Entities}->cloneNode ($deep);
-    $node->{Entities}->setReadOnly (1);
 
     $node->{Notations} = $self->{Notations}->cloneNode ($deep);
-    $node->{Notations}->setReadOnly (1);
 
     $node->cloneChildren ($self, $deep);
 
@@ -3181,11 +3202,6 @@ sub getPubId
     $_[0]->{PubId};
 }
 
-sub isAlwaysReadOnly
-{
-    1;
-}
-
 sub removeChildHoodMemories
 {
     my ($self, $dontWipeReadOnly) = @_;
@@ -3194,7 +3210,7 @@ sub removeChildHoodMemories
     {
 	delete $self->{Parent}->{Doctype};
     }
-    $self->SUPER::removeChildHoodMemories ($dontWipeReadOnly);
+    $self->SUPER::removeChildHoodMemories;
 }
 
 sub dispose
@@ -3421,6 +3437,11 @@ sub cloneNode
 #------------------------------------------------------------
 # Extra method implementations
 
+sub isReadOnly
+{
+    0;
+}
+
 sub print
 {
     my ($self, $FILE) = @_;
@@ -3569,6 +3590,11 @@ sub cloneNode
 #------------------------------------------------------------
 # Extra method implementations
 
+sub isReadOnly
+{
+    0;
+}
+
 sub print
 {
     my ($self, $FILE) = @_;
@@ -3656,7 +3682,7 @@ sub dispose
 {
     my $self = shift;
 
-    $self->{XMLDecl}->dispose;
+    $self->{XMLDecl}->dispose if defined $self->{XMLDecl};
     delete $self->{XMLDecl};
     delete $self->{Doctype};
     $self->SUPER::dispose;
@@ -3752,6 +3778,9 @@ package XML::Parser::Dom;
 # but that is *NOT* how a regular user should use it!
 $XML::Parser::Built_In_Styles{Dom} = 1;
 
+my $lastWasText = 0;
+my $lastText;
+
 sub Init
 {
     my $expat = shift;
@@ -3774,6 +3803,8 @@ sub Init
 
     # We haven't passed the root element yet
     $expat->{DOM_endDoc} = 0;
+
+    $lastWasText = 0;
 }
 
 sub Final
@@ -3800,8 +3831,31 @@ sub Final
 
 sub Char
 {
-    # Merge text with previous node if possible
-    $_[0]->{DOM_Element}->addText ($_[1]);
+    my ($expat, $str) = @_;
+
+    if ($expat->{KeepCDATA} && $expat->{DOM_inCDATA})
+    {
+	$lastWasText = 0;
+	# Merge text with previous node if possible
+	$expat->{DOM_Element}->addCDATA ($str);
+    }
+    else
+    {
+	# Merge text with previous node if possible
+	# Used to be:	$expat->{DOM_Element}->addText ($str);
+	if ($lastWasText)
+	{
+	    $lastText->{Data} .= $str;
+	}
+	else
+	{
+	    $lastText = $expat->{DOM_Document}->createTextNode ($str);
+	    my $elem = $expat->{DOM_Element};
+	    $lastText->{Parent} = $elem;
+	    push @{$elem->{C}}, $lastText;
+	    $lastWasText = 1;
+	}
+    }
 }
 
 # Used by Start() to check whether attributes were specified or defaulted
@@ -3839,6 +3893,7 @@ sub Start
 	$expat->{DOM_inProlog} = 0;
     }
 
+    $lastWasText = 0;
     my $node = $doc->createElement ($elem);
     $expat->{DOM_Element} = $node;
     $parent->appendChild ($node);
@@ -3851,6 +3906,7 @@ sub Start
     while ($i < $n)
     {
 	my $name = $attr[$i++];
+	$lastWasText = 0;
 	my $attr = $doc->createAttribute ($name, $attr[$i++],
 					  defined ($spec->{$name}));
 	$node->setAttributeNode ($attr);
@@ -3861,6 +3917,7 @@ sub End
 {
     my $expat = shift;
     my $elem = $expat->{DOM_Element} = $expat->{DOM_Element}->{Parent};
+    $lastWasText = 0;
 
     # Check for end of root element
     $expat->{DOM_endDoc} = 1 
@@ -3887,6 +3944,7 @@ sub Default
 	    $str =~ /^&(.+);$/os;
 	    $expat->{DOM_Element}->appendChild (
 			$expat->{DOM_Document}->createEntityReference ($1));
+	    $lastWasText = 0;
 #	}
 #	else
 #	{
@@ -3895,9 +3953,23 @@ sub Default
     }
 }
 
+# XML::Parser 2.19 added support for CdataStart and CdataEnd handlers
+# If they are not defined, the Default handler is called instead
+# with the text "<![CDATA[" and "]]"
+sub CdataStart
+{
+    $_[0]->{DOM_inCDATA} = 1;
+}
+
+sub CdataEnd
+{
+    $_[0]->{DOM_inCDATA} = 0;
+}
+
 sub Comment
 {
     my ($expat, $str) = @_;
+    $lastWasText = 0;
     my $comment = $expat->{DOM_Document}->createComment ($str);
     $expat->{DOM_Element}->appendChild ($comment);
 }
@@ -3933,6 +4005,7 @@ sub XMLDecl
 #    deb ("XMLDecl", @_);
 
     my $doc = $expat->{DOM_Document};
+    $lastWasText = 0;
     $doc->setXMLDecl (new XML::DOM::XMLDecl ($doc, @_));
 }
 
@@ -3949,6 +4022,7 @@ sub Entity
 	$parameter = 1;
     }
 
+    $lastWasText = 0;
     $expat->{DOM_Doctype}->addEntity ($parameter, @_);
 }
 
@@ -3957,6 +4031,7 @@ sub Element
     my $expat = shift;
 #    deb ("Element", @_);
 
+    $lastWasText = 0;
     $expat->{DOM_Doctype}->addElementDecl (@_);
 }
 
@@ -3965,6 +4040,7 @@ sub Notation
     my $expat = shift;
 #    deb ("Notation", @_);
 
+    $lastWasText = 0;
     $expat->{DOM_Doctype}->addNotation (@_);
 }
 
@@ -3974,6 +4050,7 @@ sub Proc
 #    deb ("Proc", @_);
 
     my $doc = $expat->{DOM_Document};
+    $lastWasText = 0;
     $doc->appendChild (new XML::DOM::ProcessingInstruction ($doc, @_));
 }
 
@@ -4054,6 +4131,12 @@ As described in the synopsis, when you create an XML::DOM::Parser object,
 the parse and parsefile methods create an I<XML::DOM::Document> object
 from the specified input. This Document object can then be examined, modified and
 written back out to a file or converted to a string.
+
+When using XML::DOM with XML::Parser version 2.19 and up, setting the 
+XML::DOM::Parser option I<KeepCDATA> to 1 will store CDATASections in
+CDATASection nodes, instead of converting them to Text nodes.
+Subsequent CDATASection nodes will be merged into one. Let me know if this
+is a problem.
 
 A Document has a tree structure consisting of I<Node> objects. A Node may contain
 other nodes, depending on its type.

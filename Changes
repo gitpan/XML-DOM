@@ -1,5 +1,80 @@
 Change History:
 
+1.15 (enno) 2/12/1999
+- 28% Performance improvements. Benchmark was the following program:
+
+	use XML::DOM;
+	$dom = XML::DOM::Parser->new;
+	my $doc = $dom->parsefile ("samples/REC-xml-19980210.xml");
+
+  Running it 20 times on a Sun Ultra-1, using the ksh function 'time',
+  the average time was 9.02s (real time.) XML::Parser 2.19, Perl 5.005_02.
+  As a comparison, XML-Grove-0.05 takes 2.17s running:
+
+      use XML::Parser;
+      use XML::Parser::Grove;
+      use XML::Grove;
+ 
+      $parser = XML::Parser->new(Style => 'Grove');
+      $grove = $parser->parsefile ("samples/REC-xml-19980210.xml");
+
+  And XML::Parser 2.19 takes 0.71s running (i.e. building nothing):
+
+      use XML::Parser;
+      $parser = XML::Parser->new;
+      $parser->parsefile ("samples/REC-xml-19980210.xml");
+
+  XML-Grove-0.40alpha takes 4.62s running the following script:
+
+	use XML::Grove::Builder;
+	use XML::Parser::SAXPerl;
+	$grove_builder = XML::Grove::Builder->new;
+	$parser = XML::Parser::SAXPerl->new ( Handler => $grove_builder );
+	$document = $parser->parse ( Source => {
+		SystemId => "samples/REC-xml-19980210.xml" } );
+
+  Each following improvement knocked a few tenths of a second off:
+  
+  - Reimplemented the ReadOnly mechanism, because it was spending a lot of
+    time in setReadOnly when parsing large documents (new time: 8.00s)
+  - Hacked appendChild to squeeze out a little speed (new time: 7.70s)
+  - Eliminated calls to addText in the Start handler which had to figure out
+    every time wether it should add a piece of text to a previous text node.
+    Now I keep track of whether the previous node was a text node in the
+    XML::DOM::Parser code and take care of adding the text and creating a
+    new Text node right there, without the overhead of several function calls
+    (new time: 6.45s)
+
+1.14 (enno) 15/1/1999
+- Bug in Document::dispose - it tried to call dispose on XMLDecl even 
+  if it didn't exist
+- Bug with XML::Parser 2.19 (and up):
+  XML::Parser 2.19 added support for CdataStart and CdataEnd handlers which 
+  will call the Default handler instead if those handlers aren't defined.
+  This caused the exception "XML::DOM::DOMException(Code=5, Name=INVALID_CHARACTER_ERR, Message=bad Entity Name [] in EntityReference)"
+  whenever it encountered a CDATASection.
+  (Thanks to Roger Espinosa at roger@umich.edu)
+- Added a new XML::DOM::Parser option 'KeepCDATA' which will store CDATASections
+  as CDATASection nodes instead of converting them to Text nodes (which is the
+  default/old behavior)
+- Fixed bug in CDATASection print routine. It printed "<!CDATA[" instead of
+  "<![CDATA[".
+
+1.13 (enno) 12/21/1998
+- (Bug introduced by 1.12) Could not replace the Document root element with
+   replaceChild. (Thanks again, Francois)
+
+1.12 (enno) 12/18/1998
+- Attr::print doesn't print a leading space anymore and Element::print does
+  print the space. This should affect hardly anybody.
+- Added test for HIERARCHY_REQUEST_ERR to Node::replaceChild
+- getChildNodes now returns empty NodeList for Nodes that can't have kids
+  (instead of undef)
+- Fixed bug in removeAttribute. It would throw an exception.
+  (Thanks to Francois Belanger at francois@sitepak.com)
+- removeChildNodes was using $_, which was somehow messing up the global $_.
+  (Thanks again, Francois)
+
 1.11 (enno) 12/16/1998
 - Fixed checking of XML::Parser version number. Newer versions should be 
   allowed as well. Current version works with XML::Parser 2.17.

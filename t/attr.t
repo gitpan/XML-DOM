@@ -1,4 +1,4 @@
-BEGIN {print "1..20\n";}
+BEGIN {print "1..22\n";}
 END {print "not ok 1\n" unless $loaded;}
 use XML::DOM;
 use CheckAncestors;
@@ -99,3 +99,10 @@ unless (assert_ok ($doc->equals ($doc2, $cmp)))
 }
 
 assert_ok ($hair->getNodeTypeName eq "ATTRIBUTE_NODE");
+
+$bart->removeAttribute ("hair");
+
+# check if hair is still defaulted
+$hair2 = $battr->getNamedItem ("hair");
+assert_ok ($hair2->getValue eq "yellow");
+assert_ok (not $hair2->isSpecified);

@@ -8,6 +8,7 @@ README				Short explanation
 samples/REC-xml-19980210.xml
 t/astress.t
 t/attr.t
+t/cdata.t
 t/example.t
 t/minus.t
 t/modify.t

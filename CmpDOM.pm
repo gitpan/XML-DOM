@@ -115,8 +115,8 @@ sub equals
 	$i++;
 	$cmp->popContext;
     }
-    return 0 unless $cmp->sameReadOnly ($self->getProperty ("ReadOnly"),
-					$other->getProperty ("ReadOnly"));
+    return 0 unless $cmp->sameReadOnly ($self->isReadOnly,
+					$other->isReadOnly);
     1;
 }
 
@@ -157,8 +157,8 @@ sub equals
 	return 0 unless $self->{C}->equals ($other->{C}, $cmp);
 	$cmp->popContext;
     }
-    return 0 unless $cmp->sameReadOnly ($self->{ReadOnly},
-					$other->{ReadOnly});
+    return 0 unless $cmp->sameReadOnly ($self->isReadOnly,
+					$other->isReadOnly);
 
     for my $prop (@{$self->getCmpProps})
     {
