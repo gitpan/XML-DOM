@@ -5,8 +5,6 @@ FAQ.xml
 MANIFEST			This file.
 Makefile.PL
 README
-bin/README.txt			sample perl scripts
-bin/pretty.pl
 lib/XML/DOM.pm
 lib/XML/DOM/AttDef.pod
 lib/XML/DOM/AttlistDecl.pod

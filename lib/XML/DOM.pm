@@ -41,7 +41,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.36';
+    $VERSION = '1.38';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -1168,7 +1168,6 @@ sub addCDATA
 	$node = $self->[_Doc]->createCDATASection ($str);
 	$self->appendChild ($node);
     }
-    $node;
 }
 
 sub removeChildNodes
@@ -1514,6 +1513,11 @@ sub print
     $FILE->print (" ");
     $FILE->print (XML::DOM::encodeProcessingInstruction ($self->[_Data]));
     $FILE->print ("?>");
+}
+
+sub _to_sax {
+    my ($self, $doch) = @_;
+    $doch->processing_instruction({Target => $self->getTarget, Data => $self->getData});
 }
 
 ######################################################################
@@ -4616,7 +4620,7 @@ sub Proc
 sub ExternEnt
 {
     my ($expat, $base, $sysid, $pubid) = @_;
-    deb ("ExternEnt", @_);
+#    deb ("ExternEnt", @_);
 
     # ?? (tjmather) i think there is a problem here
     # with XML::Parser > 2.27 since file_ext_ent_handler
@@ -4866,7 +4870,7 @@ to support the 4 added node classes.
 =item $VERSION
 
 The variable $XML::DOM::VERSION contains the version number of this 
-implementation, e.g. "1.30".
+implementation, e.g. "1.38".
 
 =back
 

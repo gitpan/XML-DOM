@@ -1,5 +1,14 @@
 Change History for XML-DOM:
 
+1.38 (tjmather) 04/05/2002
+- Removed bin/pretty.pl, it is now in XML-Filter-Reindent
+- Removed return from addCDATA function to fix memory leak
+  (Steve Hay)
+- Added missing _to_sax method to ProcessingInstruction class
+  (Patrick Whittle)
+- Removed extranous debugging statement from ExternEnt subroutine
+  (Jon Grov)
+
 1.37 (tjmather) 02/15/2002
 - parameter should be last argument of DocumentType::addEntity
   (Patrick Whittle)
