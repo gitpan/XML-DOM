@@ -44,5 +44,6 @@ my $doc = $parser->parse ($str);
 assert_ok (not $@);
 
 my $out = $doc->toString;
+$out =~ tr/\012/\n/;
 my $result = ($XML::Parser::VERSION >= 2.19) ? $str : $oldStr;
 assert_ok ($out eq $result);

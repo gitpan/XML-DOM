@@ -23,6 +23,31 @@ sub assert_ok
     $ok;
 }
 
+# Replaces the filepath separator if necessary (i.e for Macs and Windows/DOS)
+sub filename
+{
+    my $name = shift;
+
+    if ((defined $^O and
+	 $^O =~ /MSWin32/i ||
+	 $^O =~ /Windows_95/i ||
+	 $^O =~ /Windows_NT/i) ||
+	(defined $ENV{OS} and
+	 $ENV{OS} =~ /MSWin32/i ||
+	 $ENV{OS} =~ /Windows_95/i ||
+	 $ENV{OS} =~ /Windows_NT/i))
+    {
+	$name =~ s!/!\\!g;
+    }
+    elsif  ((defined $^O and $^O =~ /MacOS/i) ||
+	    (defined $ENV{OS} and $ENV{OS} =~ /MacOS/i))
+    {
+	$name =~ s!/!:!g;
+	$name = ":$name";
+    }
+    $name;
+}
+
 ######################### End of black magic.
 
 # Insert your test code below (better if it prints "ok 13"
@@ -39,7 +64,7 @@ unless (assert_ok ($parser))
 
 my $doc;
 eval {
-    $doc = $parser->parsefile ('samples/REC-xml-19980210.xml');
+    $doc = $parser->parsefile (filename ('samples/REC-xml-19980210.xml'));
 };
 assert_ok (not $@);
 

@@ -33,6 +33,7 @@ END
 my $parser = new XML::DOM::Parser (NoExpand => 1);
 my $doc = $parser->parse ($str);
 my $out = $doc->toString;
+$out =~ tr/\012/\n/;
 
 if ($out ne $str)
 {
@@ -41,6 +42,8 @@ if ($out ne $str)
 print "ok 2\n";
 
 $str = $doc->getElementsByTagName("butthead")->item(0)->toString;
+$str =~ tr/\012/\n/;
+
 if ($str ne "<butthead>\nYes, Beavis.\n </butthead>")
 {
     print "not ";

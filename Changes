@@ -1,5 +1,50 @@
 Change History:
 
+1.18 (enno) 3/15/1999
+- Fixed typo "DOM::XML::XmlUtf8Encode" in expandEntityRefs() to
+  XML::DOM::XmlUtf8Encode. 
+  (Thanks to Manessinger Andreas <man@adv.magwien.gv.at>)
+- XML::Parser 2.20 added the is_defaulted method, which improves performance
+  a bit when used. Benchmark (see below) went from 6.50s to 6.07s (7%)
+  You don't have to upgrade to 2.20, this change is backwards compatible.
+- Copied node constants (e.g. ELEMENT_NODE) from XML::DOM::Node to XML::DOM,
+  so you can use ELEMENT_NODE instead of XML::DOM::ELEMENT_NODE.
+  The old style will still work.
+- Fixed XmlUtf8Decode to add 'x' when printing hex entities (not used by 
+  XML::DOM module, but other people might want to use it at some point)
+- Fixed typo: DocumentType::getSysid should have been getSysId.
+  (Thanks to Bruce Kaskel <bkaskel@Adobe.COM>)
+- Added DocumentType::setName, setSysId, setPubId
+- Added Document::createDocumentType
+- DocumentType::print no longer prints the square brackets if it has
+  no entities, notations or other children. (Thanks again, Bruce)
+- The MacOS related bugs in the testcases etc. should all be fixed.
+  (Thanks to Arved Sandstrom <Arved_37@chebucto.ns.ca> and 
+  Chris Nandor <pudge@pobox.com>)
+- Added code to ignore Text Declarations from external parsed entities, i.e.
+  <?xml version....?> They were causing exceptions like 
+  "XML::DOM::DOMException(Code=5, Name=INVALID_CHARACTER_ERR, Message=bad 
+  Entity Name [] in EntityReference)"
+  (Thanks to Marcin Jagodzinski <marcin@quake.org.pl>)
+
+1.17 (enno) 2/26/1999  (This release was never deployed to CPAN)
+- Added XML::DOM::UTF8 module which exploits Perl's new utf8 capabilities
+  (version 5.005_55 recommended.) If you don't use/require this module, XML::DOM
+  will work as it did before. If you do use/require it, it allows Unicode
+  characters with character codes > 127 in element and attibute names etc.
+  See XML::DOM::UTF8 man page for details. Note that this module hasn't been
+  tested thoroughly yet.
+- Fixed Makefile.PL, it would accidentally install CheckAncestors.pm and
+  CmpDOM.pm which were only meant for the test cases.
+- Added allowReservedNames, setAllowReservedNames to support checking for
+  reserved XML Names (element/attribute/entity/etc. names starting with "xml")
+- Changed some print methods (in the DOCTYPE section) to use "\xA" as
+  an end-of-line delimiter instead of "\n". Since XML::Parser (expat) converts
+  all end-of-line sequences to "\xA", it makes sense that the print routines
+  are consistent with that.
+- Fixed the testcases to convert "\n" to "\xA" before comparing test 
+  results with expected results, so that they also work on Mac OS.
+
 1.16 (enno) 2/23/1999
 - Added XML::DOM::Element::setTagName
 - Methods returning NodeList objects will now return regular perl lists when
@@ -66,7 +111,7 @@ Change History:
   will call the Default handler instead if those handlers aren't defined.
   This caused the exception "XML::DOM::DOMException(Code=5, Name=INVALID_CHARACTER_ERR, Message=bad Entity Name [] in EntityReference)"
   whenever it encountered a CDATASection.
-  (Thanks to Roger Espinosa at roger@umich.edu)
+  (Thanks to Roger Espinosa <roger@umich.edu>)
 - Added a new XML::DOM::Parser option 'KeepCDATA' which will store CDATASections
   as CDATASection nodes instead of converting them to Text nodes (which is the
   default/old behavior)
@@ -84,14 +129,14 @@ Change History:
 - getChildNodes now returns empty NodeList for Nodes that can't have kids
   (instead of undef)
 - Fixed bug in removeAttribute. It would throw an exception.
-  (Thanks to Francois Belanger at francois@sitepak.com)
+  (Thanks to Francois Belanger <francois@sitepak.com>)
 - removeChildNodes was using $_, which was somehow messing up the global $_.
   (Thanks again, Francois)
 
 1.11 (enno) 12/16/1998
 - Fixed checking of XML::Parser version number. Newer versions should be 
   allowed as well. Current version works with XML::Parser 2.17.
-  (Thanks to Martin Kolbuszewski at MKolbuszewski@mail.cebra.com)
+  (Thanks to Martin Kolbuszewski <MKolbuszewski@mail.cebra.com>)
 - Fixed typo in SYNOPSIS: "print $node->getValue ..." should have been 
   "print $href->getValue ..." (Thanks again Martin)
 - Fixed typo in documentation: 'getItem' method should have been 'item'
@@ -102,7 +147,7 @@ Change History:
   were mistaken for default attribute values. (Bug in checkUnspecAttr regexp.)
   Default attribute values aren't printed out, so it appeared those attributes
   just vanished.
-  (Thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+  (Thanks to Aravind Subramanian <aravind@genome.wi.mit.edu>)
 
 1.09 (enno) 12/3/1998
 - Changed NamedNodeMap {Values} to a NodeList instead of []
@@ -112,7 +157,7 @@ Change History:
   I accidentally pasted some text in between and messed up that whole section.
 - getNodeTypeName() always returned empty strings and the documentation
   said @XML::DOM::NodeNames, which should have been @XML::DOM::Node::NodeNames
-  (Thanks to Andrew Fitzhugh at fitzhugh@cup.hp.com)
+  (Thanks to Andrew Fitzhugh <fitzhugh@cup.hp.com>)
 - Added dispose to NodeList
 - Added setOwnerDocument to all Nodes, NodeList and NamedNodeMap, to allow 
   cut and paste between XML::DOM::Documents. 
@@ -126,14 +171,14 @@ Change History:
 - added NamedNodeMap::getChildIndex
 - fixed documentation regarding getNodeValue. It said it should return
   getTagName for Element nodes, but it should return undef.
-  (thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+  (Thanks to Aravind Subramanian <aravind@genome.wi.mit.edu>)
 - added CAVEATS in documentation (getElementsByTagName does not return "live"
   NodeLists)
 - added section about Notation node in documentation
 
 1.06 (enno) 11/16/1998
 - fixed example in the SYNOPSIS of the man page
-  (thanks to Aravind Subramanian at aravind@genome.wi.mit.edu)
+  (Thanks to Aravind Subramanian <aravind@genome.wi.mit.edu>)
 - added test case t/example.t (it's also a simple example)
 
 1.05 (enno) 11/11/1998

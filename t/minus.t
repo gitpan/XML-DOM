@@ -43,4 +43,6 @@ END
 my $parser = new XML::DOM::Parser;
 my $doc = $parser->parse ($str);
 
-assert_ok ($doc->toString eq $str);
+my $out = $doc->toString;
+$out =~ tr/\012/\n/;
+assert_ok ($out eq $str);

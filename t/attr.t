@@ -39,6 +39,7 @@ my $doc = $parser->parse ($str);
 assert_ok (not $@);
 
 my $out = $doc->toString;
+$out =~ tr/\012/\n/;
 assert_ok ($out eq $str);
 
 my $root = $doc->getDocumentElement;

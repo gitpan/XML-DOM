@@ -106,6 +106,8 @@ $doc->getDocumentElement->appendChild ($kenny);
 assert_ok (CheckAncestors::doit ($doc));
 
 $str = $doc->toString;
+$str =~ tr/\012/\n/;
+
 my $end = <<END;
 <southpark>
 <chef>

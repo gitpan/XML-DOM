@@ -16,11 +16,6 @@
 # * various odds and ends: see comments starting with "??"
 # * normalize(1) should also expand CDataSections and EntityReferences
 #
-# Update for UTF-8 support:
-#
-# * encoding of text in print functions
-# * regular expressions for checking valid Name tokens (see $ChLetter, $ReName)
-#
 ######################################################################
 
 package Stat;
@@ -44,9 +39,10 @@ package XML::DOM;
 ######################################################################
 
 use strict;
-use vars qw( $VERSION
+use vars qw( $VERSION @ISA @EXPORT
 	     $IgnoreReadOnly $SafeMode
 	     %DefaultEntities %DecodeDefaultEntity
+	     $ChBaseChar $ChIdeographic
 	     $ChLetter $ChDigit $ChExtender $ChCombiningChar $ChNameChar $ReName
 	   );
 use Carp;
@@ -54,12 +50,57 @@ use Carp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.16';
+    $VERSION = '1.18';
 
     my $needVersion = '2.16';
     die "need at least XML::Parser version $needVersion"
 	unless $XML::Parser::VERSION >= $needVersion;
+
+    @ISA = qw( Exporter );
+    @EXPORT = qw(
+	     UNKNOWN_NODE
+	     ELEMENT_NODE
+	     ATTRIBUTE_NODE
+	     TEXT_NODE
+	     CDATA_SECTION_NODE
+	     ENTITY_REFERENCE_NODE
+	     ENTITY_NODE
+	     PROCESSING_INSTRUCTION_NODE
+	     COMMENT_NODE
+	     DOCUMENT_NODE
+	     DOCUMENT_TYPE_NODE
+	     DOCUMENT_FRAGMENT_NODE
+	     NOTATION_NODE
+	     ELEMENT_DECL_NODE
+	     ATT_DEF_NODE
+	     XML_DECL_NODE
+	     ATTLIST_DECL_NODE
+	    );
 }
+
+#---- Constant definitions
+
+# Node types
+
+sub UNKNOWN_NODE                () {0;}		# not in the DOM Spec
+
+sub ELEMENT_NODE                () {1;}
+sub ATTRIBUTE_NODE              () {2;}
+sub TEXT_NODE                   () {3;}
+sub CDATA_SECTION_NODE          () {4;}
+sub ENTITY_REFERENCE_NODE       () {5;}
+sub ENTITY_NODE                 () {6;}
+sub PROCESSING_INSTRUCTION_NODE () {7;}
+sub COMMENT_NODE                () {8;}
+sub DOCUMENT_NODE               () {9;}
+sub DOCUMENT_TYPE_NODE          () {10;}
+sub DOCUMENT_FRAGMENT_NODE      () {11;}
+sub NOTATION_NODE               () {12;}
+
+sub ELEMENT_DECL_NODE		() {13;}	# not in the DOM Spec
+sub ATT_DEF_NODE 		() {14;}	# not in the DOM Spec
+sub XML_DECL_NODE 		() {15;}	# not in the DOM Spec
+sub ATTLIST_DECL_NODE		() {16;}	# not in the DOM Spec
 
 #
 # Definitions of the character classes and regular expressions as defined in the
@@ -68,15 +109,19 @@ BEGIN
 # NOTE: ChLetter maps to the 'Letter' definition in the XML Spec.
 # I just took all the character codes < 128.
 #
-# Reimplement these expressions when Perl supports UTF-8 in regexps
+# The XML::DOM::UTF8 module predefines these first five variables
+# to also include Unicodes > 127
 #
 
-$ChLetter =	   "a-zA-Z";
-$ChDigit =	   "0-9";
-$ChExtender =	   "";
-$ChCombiningChar = "";
-$ChNameChar =	   "-._:$ChLetter$ChDigit$ChCombiningChar$ChExtender";
-$ReName =	   "[$ChLetter:_][$ChNameChar]*";
+$ChBaseChar		||= "a-zA-Z";
+$ChIdeographic		||= "";
+$ChDigit		||= "0-9";
+$ChExtender		||= "";
+$ChCombiningChar	||= "";
+
+$ChLetter		= "$ChBaseChar$ChIdeographic";
+$ChNameChar		= "-._:$ChLetter$ChDigit$ChCombiningChar$ChExtender";
+$ReName			= "[$ChLetter:_][$ChNameChar]*";
 
 %DefaultEntities = 
 (
@@ -143,20 +188,26 @@ sub toHex
 # 2nd parameter $default: list of Default Entity characters that need to be 
 # converted (e.g. "&<" for conversion to "&amp;" and "&lt;" resp.)
 #
-sub encodeText
-{
-    my ($str, $default) = @_;
-    return undef unless defined $str;
 
-    $str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
-	defined($1) ? XmlUtf8Decode ($1) : 
-		      defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egos;
+unless (defined \&encodeText)
+{
+    sub encodeText
+    {
+	# This method is overriden in XML::DOM::UTF8
+	
+	my ($str, $default) = @_;
+	return undef unless defined $str;
+	
+	$str =~ s/([\xC0-\xDF].|[\xE0-\xEF]..|[\xF0-\xFF]...)|([$default])|(]]>)/
+		defined($1) ? XmlUtf8Decode ($1) : 
+			defined ($2) ? $DecodeDefaultEntity{$2} : "]]&gt;" /egos;
 
 #?? could there be references that should not be expanded?
 # e.g. should not replace &#nn; &#xAF; and &abc;
 #    $str =~ s/&(?!($ReName|#[0-9]+|#x[0-9a-fA-F]+);)/&amp;/go;
 
-    $str;
+	$str;
+    }
 }
 
 # Used by AttDef - default value
@@ -169,36 +220,39 @@ sub encodeAttrValue
 #
 # Converts an integer (Unicode - ISO/IEC 10646) to a UTF-8 encoded character 
 # sequence.
-# Used for converting e.g. &#123; or &#x3ff; to a string value.
+# Used when converting e.g. &#123; or &#x3ff; to a string value.
 #
 # Algorithm borrowed from expat/xmltok.c/XmlUtf8Encode()
 #
-sub XmlUtf8Encode
-{
-    my $n = shift;
-
 # not checking for bad characters: < 0, x00-x08, x0B-x0C, x0E-x1F, xFFFE-xFFFF
 
-    if ($n < 0x80)
+unless (defined \&XmlUtf8Encode)
+{
+    # This method is overriden in XML::DOM::UTF8
+	
+    sub XmlUtf8Encode
     {
-	return chr ($n);
+	my $n = shift;
+	if ($n < 0x80)
+	{
+	    return chr ($n);
+	}
+	elsif ($n < 0x800)
+	{
+	    return pack ("CC", (($n >> 6) | 0xc0), (($n & 0x3f) | 0x80));
+	}
+	elsif ($n < 0x10000)
+	{
+	    return pack ("CCC", (($n >> 12) | 0xe0), ((($n >> 6) & 0x3f) | 0x80),
+			 (($n & 0x3f) | 0x80));
+	}
+	elsif ($n < 0x110000)
+	{
+	    return pack ("CCCC", (($n >> 18) | 0xf0), ((($n >> 12) & 0x3f) | 0x80),
+			 ((($n >> 6) & 0x3f) | 0x80), (($n & 0x3f) | 0x80));
+	}
+	croak "number is too large for Unicode [$n] in &XmlUtf8Encode";
     }
-    elsif ($n < 0x800)
-    {
-	return pack ("CC", (($n >> 6) | 0xc0), (($n & 0x3f) | 0x80));
-    }
-    elsif ($n < 0x10000)
-    {
-	return pack ("CCC", (($n >> 12) | 0xe0), ((($n >> 6) & 0x3f) | 0x80),
-		     (($n & 0x3f) | 0x80));
-    }
-    elsif ($n < 0x110000)
-    {
-	return pack ("CCCC", (($n >> 18) | 0xf0), ((($n >> 12) & 0x3f) | 0x80),
-		     ((($n >> 6) & 0x3f) | 0x80), (($n & 0x3f) | 0x80));
-    }
-
-    croak "number is too large for Unicode [$n] in &XmlUtf8Encode";
 }
 
 #
@@ -236,7 +290,7 @@ sub XmlUtf8Decode
     {
 	croak "bad value [$str] for XmlUtf8Decode";
     }
-    $hex ? sprintf ("&#%x;", $n) : sprintf ("&#%d;", $n);
+    $hex ? sprintf ("&#x%x;", $n) : "&#$n;";
 }
 
 $IgnoreReadOnly = 0;
@@ -264,11 +318,29 @@ sub ignoreReadOnly
     return $i;
 }
 
-sub isValidName
+# XML spec seems to break its own rules... (see ENTITY xmlpio)
+sub forgiving_isValidName
 {
-    $_[0] =~ /^$ReName$/o;    # and $_[0] !~ /^xml/o and $_[0] !~ /^xml$/io;
-#?? XML spec seems to break its own rules... (see ENTITY xmlpio)
-#?? fix this when getting an answer from Tim Bray
+    $_[0] =~ /^$ReName$/o;
+}
+
+# Don't allow names starting with xml (either case)
+sub picky_isValidName
+{
+    $_[0] =~ /^$ReName$/o and $_[0] !~ /^xml/i;
+}
+
+# Be forgiving by default, 
+*isValidName = \&forgiving_isValidName;
+
+sub allowReservedNames
+{
+    *isValidName = ($_[0] ? \&forgiving_isValidName : \&picky_isValidName);
+}
+
+sub getAllowReservedNames
+{
+    *isValidName == \&forgiving_isValidName;
 }
 
 ######################################################################
@@ -331,7 +403,7 @@ package XML::DOM::DOMException;
 
 use Exporter;
 use overload '""' => \&stringify;
-use vars qw ( @ISA @EXPORT @ErrorNames);
+use vars qw ( @ISA @EXPORT @ErrorNames );
 
 BEGIN
 {
@@ -746,34 +818,35 @@ sub hasFeature
 package XML::DOM::Node;
 ######################################################################
 
-use vars qw( @ISA @EXPORT @NodeNames );
+use vars qw( @NodeNames @EXPORT @ISA );
 
 BEGIN 
 {
   import XML::DOM::DOMException;
   import Carp;
+
   require FileHandle;
 
   @ISA = qw( Exporter );
   @EXPORT = qw(
-	      UNKNOWN_NODE
-	      ELEMENT_NODE
-	      ATTRIBUTE_NODE
-	      TEXT_NODE
-	      CDATA_SECTION_NODE
-	      ENTITY_REFERENCE_NODE
-	      ENTITY_NODE
-	      PROCESSING_INSTRUCTION_NODE
-	      COMMENT_NODE
-	      DOCUMENT_NODE
-	      DOCUMENT_TYPE_NODE
-	      DOCUMENT_FRAGMENT_NODE
-	      NOTATION_NODE
-	      ELEMENT_DECL_NODE
-	      ATT_DEF_NODE
-	      XML_DECL_NODE
-	      ATTLIST_DECL_NODE
-	      );
+	     UNKNOWN_NODE
+	     ELEMENT_NODE
+	     ATTRIBUTE_NODE
+	     TEXT_NODE
+	     CDATA_SECTION_NODE
+	     ENTITY_REFERENCE_NODE
+	     ENTITY_NODE
+	     PROCESSING_INSTRUCTION_NODE
+	     COMMENT_NODE
+	     DOCUMENT_NODE
+	     DOCUMENT_TYPE_NODE
+	     DOCUMENT_FRAGMENT_NODE
+	     NOTATION_NODE
+	     ELEMENT_DECL_NODE
+	     ATT_DEF_NODE
+	     XML_DECL_NODE
+	     ATTLIST_DECL_NODE
+	    );
 }
 
 #---- Constant definitions
@@ -1406,8 +1479,8 @@ sub expandEntityRefs
     my $doctype = $self->{Doc}->getDoctype;
 
     $str =~ s/&($XML::DOM::ReName|(#([0-9]+)|#x([0-9a-fA-F]+)));/
-	defined($2) ? DOM::XML::XmlUtf8Encode ($3 || hex ($4)) 
-		    : expandEntityRef ($1, $doctype)/eg;
+	defined($2) ? XML::DOM::XmlUtf8Encode ($3 || hex ($4)) 
+		    : expandEntityRef ($1, $doctype)/ego;
     $str;
 }
 
@@ -2327,7 +2400,7 @@ sub print
 	{
 	    for my $attr (@attlist)
 	    {
-		$FILE->print ("\n  ");
+		$FILE->print ("\x0A  ");
 		$attr->print ($FILE);
 	    }
 	}
@@ -3206,7 +3279,7 @@ sub cloneNode
 #------------------------------------------------------------
 # Extra method implementations
 
-sub getSysid
+sub getSysId
 {
     $_[0]->{SysId};
 }
@@ -3214,6 +3287,21 @@ sub getSysid
 sub getPubId
 {
     $_[0]->{PubId};
+}
+
+sub setSysId
+{
+    $_[0]->{SysId} = $_[1];
+}
+
+sub setPubId
+{
+    $_[0]->{PubId} = $_[1];
+}
+
+sub setName
+{
+    $_[0]->{Name} = $_[1];
 }
 
 sub removeChildHoodMemories
@@ -3384,29 +3472,38 @@ sub print
     {
 	$FILE->print (" SYSTEM \"$sysId\"");
     }
-    $FILE->print (" [\n");
 
-    for my $kid (@{$self->{Entities}->getValues})
-    {
-	$FILE->print (" ");
-	$kid->print ($FILE);
-	$FILE->print ("\n");
-    }
+    my @entities = @{$self->{Entities}->getValues};
+    my @notations = @{$self->{Notations}->getValues};
+    my @kids = @{$self->{C}};
 
-    for my $kid (@{$self->{Notations}->getValues})
+    if (@entities || @notations || @kids)
     {
-	$FILE->print (" ");
-	$kid->print ($FILE);
-	$FILE->print ("\n");
-    }
+	$FILE->print (" [\x0A");
 
-    for my $kid (@{$self->{C}})
-    {
-	$FILE->print (" ");
-	$kid->print ($FILE);
-	$FILE->print ("\n");
+	for my $kid (@entities)
+	{
+	    $FILE->print (" ");
+	    $kid->print ($FILE);
+	    $FILE->print ("\x0A");
+	}
+
+	for my $kid (@notations)
+	{
+	    $FILE->print (" ");
+	    $kid->print ($FILE);
+	    $FILE->print ("\x0A");
+	}
+
+	for my $kid (@kids)
+	{
+	    $FILE->print (" ");
+	    $kid->print ($FILE);
+	    $FILE->print ("\x0A");
+	}
+	$FILE->print ("]");
     }
-    $FILE->print ("]>");
+    $FILE->print (">");
 }
 
 ######################################################################
@@ -3588,6 +3685,11 @@ sub createDocumentFragment
     new XML::DOM::DocumentFragment (@_);
 }
 
+sub createDocumentType
+{
+    new XML::DOM::DocumentType (@_);
+}
+
 sub cloneNode
 {
     my ($self, $deep) = @_;
@@ -3617,13 +3719,13 @@ sub print
     if (defined $xmlDecl)
     {
 	$xmlDecl->print ($FILE);
-	$FILE->print ("\n");
+	$FILE->print ("\x0A");
     }
 
     for my $node (@{$self->{C}})
     {
 	$node->print ($FILE);
-	$FILE->print ("\n");
+	$FILE->print ("\x0A");
     }
 }
 
@@ -3872,58 +3974,96 @@ sub Char
     }
 }
 
-# Used by Start() to check whether attributes were specified or defaulted
-sub checkUnspecAttr
+if ($XML::Parser::VERSION < 2.20)
 {
-    my ($expat, $str) = @_;
-    my %spec = ();
 
-    while ($str =~ /\b($XML::DOM::ReName)=("[^"]*"|'[^']*')/go)	# ") leave this for Emacs
+    # Used by Start() to check whether attributes were specified or defaulted
+    *checkUnspecAttr = sub
     {
-	$spec{$1} = $1;
-    }
-    $expat->{DOM_Spec} = \%spec;
-}
+	my ($expat, $str) = @_;
+	my %spec = ();
+	
+	while ($str =~ /\b($XML::DOM::ReName)=("[^"]*"|'[^']*')/go)	# ") leave this for Emacs
+	{
+	    $spec{$1} = $1;
+	}
+	$expat->{DOM_Spec} = \%spec;
+    };
 
-sub Start
-{
-    my ($expat, $elem, @attr) = @_;
-    my $parent = $expat->{DOM_Element};
-    my $doc = $expat->{DOM_Document};
-
-    # See which attributes were specified and which were defaulted
-    if (@attr)
+    *Start = sub
     {
-	# Performance hit: 12.58 sec => 13.39
-	my $prev = $expat->{Handlers}->{Default};
-	$expat->setHandlers (Default => \&XML::Parser::Dom::checkUnspecAttr);
-	$expat->default_current;
-	$expat->setHandlers (Default => $prev);
-    }
-
-    if ($parent == $doc)
-    {
-	# End of document prolog, i.e. start of first Element
-	$expat->{DOM_inProlog} = 0;
-    }
-
-    $lastWasText = 0;
-    my $node = $doc->createElement ($elem);
-    $expat->{DOM_Element} = $node;
-    $parent->appendChild ($node);
-
-    my $spec = $expat->{DOM_Spec};
-    delete $expat->{DOM_Spec};
-
-    my $i = 0;
-    my $n = @attr;
-    while ($i < $n)
-    {
-	my $name = $attr[$i++];
+	my ($expat, $elem, @attr) = @_;
+	my $parent = $expat->{DOM_Element};
+	my $doc = $expat->{DOM_Document};
+	
+	# See which attributes were specified and which were defaulted
+	if (@attr)
+	{
+	    # Performance hit: 12.58 sec => 13.39
+	    my $prev = $expat->{Handlers}->{Default};
+	    $expat->setHandlers (Default => \&XML::Parser::Dom::checkUnspecAttr);
+	    $expat->default_current;
+	    $expat->setHandlers (Default => $prev);
+	}
+	
+	if ($parent == $doc)
+	{
+	    # End of document prolog, i.e. start of first Element
+	    $expat->{DOM_inProlog} = 0;
+	}
+	
 	$lastWasText = 0;
-	my $attr = $doc->createAttribute ($name, $attr[$i++],
-					  defined ($spec->{$name}));
-	$node->setAttributeNode ($attr);
+	my $node = $doc->createElement ($elem);
+	$expat->{DOM_Element} = $node;
+	$parent->appendChild ($node);
+	
+	my $spec = $expat->{DOM_Spec};
+	delete $expat->{DOM_Spec};
+	
+	my $i = 0;
+	my $n = @attr;
+	while ($i < $n)
+	{
+	    my $name = $attr[$i++];
+	    $lastWasText = 0;
+	    my $attr = $doc->createAttribute ($name, $attr[$i++], 
+					      defined ($spec->{$name}));
+	    $node->setAttributeNode ($attr);
+	}
+    };
+    
+} else {	# $XML::Parser::VERSION >= 2.20
+    
+    *Start = sub
+    {
+	my ($expat, $elem, @attr) = @_;
+	my $parent = $expat->{DOM_Element};
+	my $doc = $expat->{DOM_Document};
+	
+	if ($parent == $doc)
+	{
+	    # End of document prolog, i.e. start of first Element
+	    $expat->{DOM_inProlog} = 0;
+	}
+	
+	$lastWasText = 0;
+	my $node = $doc->createElement ($elem);
+	$expat->{DOM_Element} = $node;
+	$parent->appendChild ($node);
+	
+	my $spec = $expat->{DOM_Spec};
+	delete $expat->{DOM_Spec};
+	
+	my $i = 0;
+	my $n = @attr;
+	while ($i < $n)
+	{
+	    my $name = $attr[$i++];
+	    $lastWasText = 0;
+	    my $attr = $doc->createAttribute ($name, $attr[$i++], 
+					      !$expat->is_defaulted ($name));
+	    $node->setAttributeNode ($attr);
+	}
     }
 }
 
@@ -3956,6 +4096,9 @@ sub Default
 #	if ($expat->{NoExpand})
 #	{
 	    $str =~ /^&(.+);$/os;
+	    return unless defined ($1);
+	    # Got a TextDecl (<?xml ...?>) from an external entity here once
+
 	    $expat->{DOM_Element}->appendChild (
 			$expat->{DOM_Document}->createEntityReference ($1));
 	    $lastWasText = 0;
@@ -4239,8 +4382,26 @@ previous value. The getIgnoreReadOnly method simply returns its current value.
 =item isValidName (name)
 
 Whether the specified name is a valid "Name" as specified in the XML spec.
-This implementation currently only accepts names consisting of ASCII characters.
-It should be updated when Perl supports UTF-8 in regular expressions.
+The default implementation currently only accepts names consisting of ASCII 
+characters (i.e. Unicode character codes < 127.)
+Use XML::DOM::UTF8 with Perl 5.005_5x to allow characters > 127.
+See XML::DOM::UTF8 manpage for details.
+
+=item getAllowReservedNames and allowReservedNames (boolean)
+
+The first method returns whether reserved names are allowed. 
+The second takes a boolean argument and sets whether reserved names are allowed.
+The initial value is 1 (i.e. allow reserved names.)
+
+The XML spec states that "Names" starting with (X|x)(M|m)(L|l)
+are reserved for future use. (Amusingly enough, the XML version of the XML spec
+(REC-xml-19980210.xml) breaks that very rule by defining an ENTITY with the name 
+'xmlpio'.)
+A "Name" in this context means the Name token as found in the BNF rules in the
+XML spec.
+
+XML::DOM only checks for errors when you modify the DOM tree, not when the
+DOM tree is built by the XML::DOM::Parser.
 
 =back
 
@@ -5347,13 +5508,29 @@ B<Not In DOM Spec>: See XML::DOM::ignoreReadOnly to edit the DocumentType etc.
 
 =head2 Additional methods not in the DOM Spec
 
-=item getSysId
+=item Creating and setting the DocumentType
 
-Returns the system id.
+A new DocumentType can be created with:
 
-=item getPubId
+	$doctype = $doc->createDocumentType ($name, $sysId, $pubId);
 
-Returns the public id.
+To set (or replace) the DocumentType for a particular document, use:
+
+	$doc->setDocType ($doctype);
+
+=item getSysId and setSysId (sysId)
+
+Returns or sets the system id.
+
+=item getPubId and setPubId (pudId)
+
+Returns or sets the public id.
+
+=item setName (name)
+
+Sets the name of the DTD, i.e. the name immediately following the
+DOCTYPE keyword. Note that this should always be the same as the element
+tag name of the root element.
 
 =item getAttlistDecl (elemName)
 
@@ -5647,6 +5824,10 @@ Returns the Entity with the specified name.
 
 Creates an XMLDecl object. All parameters may be undefined.
 
+=item createDocumentType (name, sysId, pubId)
+
+Creates a DocumentType object. SysId and pubId may be undefined.
+
 =item createNotation (name, base, sysId, pubId)
 
 Creates a new Notation object. Consider using 
@@ -5862,6 +6043,8 @@ child nodes of the Document.
 =back
 
 =head1 SEE ALSO
+
+The XML::DOM::UTF8 manual page.
 
 The DOM Level 1 specification at http://www.w3.org/TR/REC-DOM-Level-1
 
