@@ -1,5 +1,8 @@
 Change History for XML-DOM:
 
+1.44 (tjmather) 07/25/2005
+- Only use 'use bytes' where needed (by XML::RegExp) (Gisle Aas)
+
 1.43 (tjmather) 07/28/2003
 - Fixed bug that manifests itself with XML::Parser 2.32 and greater,
 specify external style as 'XML::Parser::Dom' rather than just 'Dom'.

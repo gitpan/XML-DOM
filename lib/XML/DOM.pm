@@ -29,8 +29,6 @@ package XML::DOM;
 
 use strict;
 
-use bytes;
-
 use vars qw( $VERSION @ISA @EXPORT
 	     $IgnoreReadOnly $SafeMode $TagStyle
 	     %DefaultEntities %DecodeDefaultEntity
@@ -41,7 +39,7 @@ use XML::RegExp;
 BEGIN
 {
     require XML::Parser;
-    $VERSION = '1.43';
+    $VERSION = '1.44';
 
     my $needVersion = '2.28';
     die "need at least XML::Parser version $needVersion (current=${XML::Parser::VERSION})"
@@ -405,6 +403,7 @@ sub ignoreReadOnly
 #
 sub forgiving_isValidName
 {
+    use bytes;  # XML::RegExp expressed in terms encoded UTF8
     $_[0] =~ /^$XML::RegExp::Name$/o;
 }
 
@@ -413,6 +412,7 @@ sub forgiving_isValidName
 #
 sub picky_isValidName
 {
+    use bytes;  # XML::RegExp expressed in terms encoded UTF8
     $_[0] =~ /^$XML::RegExp::Name$/o and $_[0] !~ /^xml/i;
 }
 
@@ -1243,6 +1243,7 @@ sub expandEntityRefs
     my ($self, $str) = @_;
     my $doctype = $self->[_Doc]->getDoctype;
 
+    use bytes;  # XML::RegExp expressed in terms encoded UTF8
     $str =~ s/&($XML::RegExp::Name|(#([0-9]+)|#x([0-9a-fA-F]+)));/
 	defined($2) ? XML::DOM::XmlUtf8Encode ($3 || hex ($4)) 
 		    : expandEntityRef ($1, $doctype)/ego;
@@ -5084,6 +5085,8 @@ Note that you need XML::Parser 2.27 or higher for this to work correctly.
 =back
 
 =head1 SEE ALSO
+
+L<XML::DOM::XPath>
 
 The Japanese version of this document by Takanori Kawai (Hippo2000)
 at L<http://member.nifty.ne.jp/hippo2000/perltips/xml/dom.htm>
